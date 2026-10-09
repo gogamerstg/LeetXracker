@@ -105,13 +105,13 @@ class LeetCodeClient:
                 print(f"[LeetCode] get_user_stats error: {e}")
         return {}
 
-    async def fetch_problem_list(
+    async def get_problem_list(
         self,
         category: str = "",
         limit: int = 50,
         skip: int = 0,
         difficulty: str = "ALL",
-        status: str = "NOT_STARTED"
+        status: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Fetch list of problems based on filter criteria."""
         query = """
@@ -162,8 +162,18 @@ class LeetCodeClient:
                     data = resp.json().get("data", {}).get("problemsetQuestionList", {})
                     return data.get("questions", [])
             except Exception as e:
-                print(f"[LeetCode] fetch_problem_list error: {e}")
+                print(f"[LeetCode] get_problem_list error: {e}")
         return []
+
+    async def fetch_problem_list(
+        self,
+        category: str = "",
+        limit: int = 50,
+        skip: int = 0,
+        difficulty: str = "ALL",
+        status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        return await self.get_problem_list(category=category, limit=limit, skip=skip, difficulty=difficulty, status=status)
 
     async def get_problem_details(self, title_slug: str) -> Optional[Dict[str, Any]]:
         """Fetch question description, code snippets, testcases, and questionId."""
