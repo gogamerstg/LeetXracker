@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeetCode Auto-Pilot AI Solver</title>
+    <title>LeetXracker - Multi-AI Auto-Solving Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -19,6 +19,27 @@
         }
     </script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase App & Analytics SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyCS8fWFuqIaK6tQNmy-S5VWxQvumr55iQE",
+            authDomain: "leetxracker.firebaseapp.com",
+            projectId: "leetxracker",
+            storageBucket: "leetxracker.firebasestorage.app",
+            messagingSenderId: "320587407544",
+            appId: "1:320587407544:web:d073336a8394ab8911544d",
+            measurementId: "G-H8ZVW0319K"
+        };
+        try {
+            const app = initializeApp(firebaseConfig);
+            getAnalytics(app);
+            console.log("[Firebase] Initialized for leetxracker.web.app");
+        } catch(e) {
+            console.warn("[Firebase] Client initialization note:", e);
+        }
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #080b11; color: #e2e8f0; }
@@ -41,7 +62,7 @@
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 mx-auto mb-4">
                 <i data-lucide="shield-check" class="w-8 h-8 text-gray-950 stroke-[2.5]"></i>
             </div>
-            <h1 class="text-2xl font-bold text-white mb-1">LeetCode Auto-Pilot</h1>
+            <h1 class="text-2xl font-bold text-white mb-1">LeetXracker</h1>
             <p class="text-xs text-gray-400">Ultra-Secure Multi-AI Engine. Location verification required.</p>
         </div>
         <div id="loginLocationStatus" class="text-center text-xs text-amber-400 py-2 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20">Requesting device location...</div>

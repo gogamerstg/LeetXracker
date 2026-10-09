@@ -3,7 +3,9 @@ import json
 import httpx
 from typing import Dict, Any, Optional
 
-FIREBASE_URL = os.environ.get("FIREBASE_DATABASE_URL", "").rstrip("/")
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "leetxracker")
+FIREBASE_API_KEY = os.environ.get("FIREBASE_API_KEY", "AIzaSyCS8fWFuqIaK6tQNmy-S5VWxQvumr55iQE")
+FIREBASE_URL = os.environ.get("FIREBASE_DATABASE_URL", f"https://{FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com").rstrip("/")
 FIREBASE_AUTH = os.environ.get("FIREBASE_AUTH_SECRET", "")  # Optional auth secret/token
 
 class FirebaseSync:
@@ -32,7 +34,7 @@ class FirebaseSync:
                 if res.status_code == 200:
                     return res.json()
         except Exception as e:
-            print(f"[Firebase] Error reading {path}: {e}")
+            print(f"[Firebase] Note: Cloud fetch for {path}: {e}")
         return None
 
     async def save_data(self, path: str, data: Any) -> bool:
@@ -43,7 +45,7 @@ class FirebaseSync:
                 res = await client.put(self._get_url(path), json=data)
                 return res.status_code in [200, 204]
         except Exception as e:
-            print(f"[Firebase] Error saving {path}: {e}")
+            print(f"[Firebase] Note: Cloud save for {path}: {e}")
             return False
 
     async def patch_data(self, path: str, data: Dict[str, Any]) -> bool:
@@ -54,7 +56,8 @@ class FirebaseSync:
                 res = await client.patch(self._get_url(path), json=data)
                 return res.status_code in [200, 204]
         except Exception as e:
-            print(f"[Firebase] Error patching {path}: {e}")
+            print(f"[Firebase] Note: Cloud patch for {path}: {e}")
             return False
 
 firebase_sync = FirebaseSync()
+
