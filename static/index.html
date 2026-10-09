@@ -295,7 +295,7 @@
 
         <div class="pt-4 border-t border-gray-800 flex items-center justify-end space-x-3">
             <button onclick="toggleSettingsModal(false)" class="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-sm font-medium text-gray-300 transition">Cancel</button>
-            <button onclick="saveSettings()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20">Save Changes</button>
+            <button id="btnSaveSettings" onclick="saveSettings()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5">Save Changes</button>
         </div>
     </div>
 </div>
@@ -375,8 +375,15 @@ let geoLat = null, geoLon = null, geoAcc = null;
 // ── Auth helpers ──
 async function apiFetch(url, opts = {}) {
     opts.credentials = 'same-origin';
+    if (!opts.headers) opts.headers = {};
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+        opts.headers['X-Auth-Token'] = token;
+        opts.headers['Authorization'] = 'Bearer ' + token;
+    }
     const res = await fetch(url, opts);
     if (res.status === 401) {
+        localStorage.removeItem('auth_token');
         showLogin();
         throw new Error('Session expired. Please log in again.');
     }
@@ -448,6 +455,9 @@ async function doLogin() {
         });
         const data = await safeJson(res);
         if (res.ok && data.success) {
+            if (data.token) {
+                localStorage.setItem('auth_token', data.token);
+            }
             currentUserInfo = data.user;
             showDashboard();
         } else {
@@ -465,12 +475,19 @@ async function doLogin() {
 
 async function doLogout() {
     try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+    localStorage.removeItem('auth_token');
     showLogin();
 }
 
 async function checkSession() {
     try {
-        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        const token = localStorage.getItem('auth_token');
+        const headers = {};
+        if (token) {
+            headers['X-Auth-Token'] = token;
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin', headers });
         if (res.ok) {
             const data = await safeJson(res);
             if (data.authenticated) {
@@ -625,6 +642,13 @@ async function syncQuickSettings() {
 }
 
 async function saveSettings() {
+    const btn = document.getElementById('btnSaveSettings');
+    const oldText = btn ? btn.innerHTML : 'Save Changes';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 inline animate-spin mr-1"></i> Saving...`;
+        lucide.createIcons();
+    }
     const payload = {
         leetcode_session: document.getElementById('inpSession').value.trim(),
         csrf_token: document.getElementById('inpCsrf').value.trim(),
@@ -646,8 +670,25 @@ async function saveSettings() {
     };
     try {
         const res = await jsonPost('/api/settings', payload);
-        if (res.ok) { toggleSettingsModal(false); updateBotState(); }
-    } catch(e) { alert('Error: '+e.message); }
+        const data = await safeJson(res);
+        if (res.ok && data.success !== false) {
+            if (btn) {
+                btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 inline mr-1"></i> Saved!`;
+                lucide.createIcons();
+            }
+            setTimeout(() => {
+                toggleSettingsModal(false);
+                updateBotState();
+                if (btn) { btn.disabled = false; btn.innerHTML = oldText; lucide.createIcons(); }
+            }, 400);
+        } else {
+            alert('Failed to save settings: ' + (data.error || data.detail || 'Unknown error'));
+            if (btn) { btn.disabled = false; btn.innerHTML = oldText; lucide.createIcons(); }
+        }
+    } catch(e) {
+        alert('Error saving settings: ' + e.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = oldText; lucide.createIcons(); }
+    }
 }
 
 async function fetchOmniModels() {
