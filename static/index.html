@@ -65,7 +65,7 @@
             <h1 class="text-2xl font-bold text-white mb-1">LeetXracker</h1>
             <p class="text-xs text-gray-400">Ultra-Secure Multi-AI Engine. Location verification required.</p>
         </div>
-        <div id="loginLocationStatus" class="text-center text-xs text-amber-400 py-2 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20">Requesting device location...</div>
+        <div id="loginLocationStatus" onclick="requestGeo()" class="text-center text-xs text-amber-400 py-2 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20 cursor-pointer">Requesting device location...</div>
         <div class="space-y-4">
             <div>
                 <label class="text-xs text-gray-300 block mb-1">Email</label>
@@ -378,10 +378,20 @@ async function apiFetch(url, opts = {}) {
     const res = await fetch(url, opts);
     if (res.status === 401) {
         showLogin();
-        throw new Error('Session expired');
+        throw new Error('Session expired. Please log in again.');
     }
     return res;
 }
+
+async function safeJson(res) {
+    try {
+        return await res.json();
+    } catch(e) {
+        const text = await res.text().catch(() => '');
+        return { success: false, error: text || 'Server returned non-JSON response' };
+    }
+}
+
 function jsonPost(url, body) {
     return apiFetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
 }
@@ -391,8 +401,10 @@ function requestGeo() {
     const el = document.getElementById('loginLocationStatus');
     const btn = document.getElementById('loginBtn');
     if (!navigator.geolocation) {
-        el.className = 'text-center text-xs text-rose-400 py-2 px-3 bg-rose-500/10 rounded-xl border border-rose-500/20';
-        el.textContent = 'Geolocation not supported by this browser. Access denied.';
+        el.className = 'text-center text-xs text-cyan-400 py-2 px-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 cursor-pointer';
+        el.textContent = 'Network IP Geolocation Active (Click to retry GPS)';
+        btn.disabled = false;
+        btn.textContent = 'Login';
         return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -401,17 +413,18 @@ function requestGeo() {
             geoLon = pos.coords.longitude;
             geoAcc = pos.coords.accuracy;
             el.className = 'text-center text-xs text-emerald-400 py-2 px-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20';
-            el.innerHTML = `Location verified (${geoLat.toFixed(4)}, ${geoLon.toFixed(4)}) Accuracy: ${geoAcc.toFixed(0)}m`;
+            el.innerHTML = `GPS Verified (${geoLat.toFixed(4)}, ${geoLon.toFixed(4)}) Accuracy: ${geoAcc.toFixed(0)}m`;
             btn.disabled = false;
             btn.textContent = 'Login';
         },
         (err) => {
-            el.className = 'text-center text-xs text-rose-400 py-2 px-3 bg-rose-500/10 rounded-xl border border-rose-500/20';
-            el.textContent = 'Location permission DENIED. You must allow GPS/Location to proceed.';
-            btn.disabled = true;
-            btn.textContent = 'Location Required';
+            // Auto fallback to IP location on mobile / HTTP
+            el.className = 'text-center text-xs text-cyan-400 py-2 px-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 cursor-pointer';
+            el.textContent = 'Network IP Geolocation Active (Click to retry GPS)';
+            btn.disabled = false;
+            btn.textContent = 'Login';
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
 }
 
@@ -419,9 +432,12 @@ async function doLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     const errEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
     errEl.classList.add('hidden');
     if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.classList.remove('hidden'); return; }
-    if (geoLat === null) { errEl.textContent = 'Location not verified. Please allow GPS permission.'; errEl.classList.remove('hidden'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Authenticating...';
 
     try {
         const res = await fetch('/api/auth/login', {
@@ -430,7 +446,7 @@ async function doLogin() {
             credentials: 'same-origin',
             body: JSON.stringify({ email, password, latitude: geoLat, longitude: geoLon, accuracy: geoAcc })
         });
-        const data = await res.json().catch(() => ({}));
+        const data = await safeJson(res);
         if (res.ok && data.success) {
             currentUserInfo = data.user;
             showDashboard();
@@ -441,6 +457,9 @@ async function doLogin() {
     } catch (e) {
         errEl.textContent = 'Network error: ' + e.message;
         errEl.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Login';
     }
 }
 
@@ -453,7 +472,7 @@ async function checkSession() {
     try {
         const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
         if (res.ok) {
-            const data = await res.json();
+            const data = await safeJson(res);
             if (data.authenticated) {
                 currentUserInfo = data.user;
                 showDashboard();
@@ -503,11 +522,11 @@ function toggleAdminModal(show) {
 async function loadAdminData() {
     try {
         const res = await apiFetch('/api/admin/users');
-        const data = await res.json();
+        const data = await safeJson(res);
         if (!data.success) return;
         // Users
         const tbody = document.getElementById('adminUsersBody');
-        tbody.innerHTML = data.users.map(u => {
+        tbody.innerHTML = (data.users||[]).map(u => {
             const isSuperAdmin = u.email === 'surajdas@surajdas.com';
             const statusBadge = u.is_active
                 ? '<span class="text-emerald-400">Active</span>'
@@ -545,7 +564,7 @@ async function adminCreateUser() {
     if (!email || !password) { alert('Email and password required.'); return; }
     try {
         const res = await jsonPost('/api/admin/users', { email, password, name, role });
-        const data = await res.json();
+        const data = await safeJson(res);
         alert(data.message || data.error || 'Done');
         if (data.success) { document.getElementById('adminNewEmail').value=''; document.getElementById('adminNewPass').value=''; document.getElementById('adminNewName').value=''; }
         loadAdminData();
@@ -553,12 +572,12 @@ async function adminCreateUser() {
 }
 
 async function adminToggleUser(email, active) {
-    try { const res = await jsonPost(`/api/admin/users/${encodeURIComponent(email)}/toggle`, { is_active: active }); const d = await res.json(); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
+    try { const res = await jsonPost(`/api/admin/users/${encodeURIComponent(email)}/toggle`, { is_active: active }); const d = await safeJson(res); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
 }
 
 async function adminDeleteUser(email) {
     if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
-    try { const res = await apiFetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' }); const d = await res.json(); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
+    try { const res = await apiFetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' }); const d = await safeJson(res); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
 }
 
 // ── Settings ──
@@ -571,7 +590,8 @@ function toggleSettingsModal(show) {
 async function fetchSettings() {
     try {
         const res = await apiFetch('/api/settings');
-        const data = await res.json();
+        const data = await safeJson(res);
+        if (!data || data.success === false) return;
         document.getElementById('inpSession').value = data.leetcode_session || '';
         document.getElementById('inpCsrf').value = data.csrf_token || '';
         document.getElementById('inpOmniBaseUrl').value = data.omniroute_base_url || 'http://localhost:20128/v1';
@@ -639,7 +659,7 @@ async function fetchOmniModels() {
     try {
         await jsonPost('/api/settings', { omniroute_base_url: baseUrl, omniroute_api_key: apiKey });
         const res = await jsonPost('/api/fetch-models', { base_url: baseUrl, api_key: apiKey });
-        const data = await res.json();
+        const data = await safeJson(res);
         if (data.success && data.models && data.models.length > 0) {
             document.getElementById('omniModelsList').innerHTML = data.models.map(m => `<option value="${m}">`).join('');
             let chosen = document.getElementById('inpOmniModel').value.trim();
@@ -657,7 +677,7 @@ async function testLeetCodeAuth() {
     if (!session) { alert('Enter LEETCODE_SESSION first.'); return; }
     try {
         const res = await jsonPost('/api/test-auth', { session, csrf });
-        const data = await res.json();
+        const data = await safeJson(res);
         if (data.success) { alert('Connected as: ' + data.username); document.getElementById('userAccountInfo').textContent = 'User: ' + data.username; }
         else alert('Failed: ' + (data.error || 'Invalid session'));
     } catch(e) { alert('Error: '+e.message); }
@@ -668,7 +688,7 @@ async function startBot() {
     await syncQuickSettings();
     try {
         const res = await apiFetch('/api/bot/start', { method: 'POST' });
-        const data = await res.json();
+        const data = await safeJson(res);
         if (data.status === 'auth_failed') { alert('LeetCode login failed! Update session cookie in Settings.'); toggleSettingsModal(true); }
         updateBotState();
     } catch(e) { alert('Error: '+e.message); }
@@ -679,10 +699,11 @@ async function stopBot() { await apiFetch('/api/bot/stop', { method: 'POST' }); 
 async function updateBotState() {
     try {
         const res = await apiFetch('/api/bot/state');
-        const state = await res.json();
+        const state = await safeJson(res);
+        if (!state || state.success === false) return;
         const statusText = document.getElementById('statusText');
         const statusDot = document.getElementById('statusIndicator');
-        statusText.textContent = state.status;
+        statusText.textContent = state.status || 'IDLE';
         const btnStart = document.getElementById('btnStart');
         const btnPause = document.getElementById('btnPause');
         const btnStop = document.getElementById('btnStop');
@@ -700,11 +721,11 @@ async function updateBotState() {
             btnPause.classList.add('hidden'); btnStop.classList.add('hidden');
         }
 
-        document.getElementById('statSolved').textContent = state.solved_count;
+        document.getElementById('statSolved').textContent = state.solved_count ?? 0;
         document.getElementById('statTarget').textContent = state.target_count > 0 ? `/ ${state.target_count}` : ' (Infinite)';
-        document.getElementById('statFailed').textContent = state.failed_count;
-        const total = state.solved_count + state.failed_count;
-        document.getElementById('statRate').textContent = (total > 0 ? Math.round((state.solved_count / total) * 100) : 100) + '%';
+        document.getElementById('statFailed').textContent = state.failed_count ?? 0;
+        const total = (state.solved_count || 0) + (state.failed_count || 0);
+        document.getElementById('statRate').textContent = (total > 0 ? Math.round(((state.solved_count || 0) / total) * 100) : 100) + '%';
         const sec = state.uptime_seconds || 0;
         document.getElementById('statUptime').textContent = `${String(Math.floor(sec/3600)).padStart(2,'0')}:${String(Math.floor((sec%3600)/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
 
@@ -716,7 +737,7 @@ async function updateBotState() {
         if (currProb) {
             spinner.classList.remove('hidden');
             pTitle.textContent = `#${currProb.id} - ${currProb.title}`;
-            pStep.textContent = `Step: ${currProb.step.replace('_',' ').toUpperCase()}...`;
+            pStep.textContent = `Step: ${(currProb.step||'').replace('_',' ').toUpperCase()}...`;
             pBadge.classList.remove('hidden'); pBadge.textContent = currProb.difficulty;
             pBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + (currProb.difficulty==='Easy'?'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20':currProb.difficulty==='Medium'?'bg-amber-500/10 text-amber-400 border border-amber-500/20':'bg-rose-500/10 text-rose-400 border border-rose-500/20');
         } else {

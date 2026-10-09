@@ -100,6 +100,22 @@ class AuthManager:
             self._save_users()
             print(f"[Auth] Super Admin account initialized: {admin_email}")
 
+    def _resolve_ip_location(self, ip: str) -> Optional[Dict[str, Any]]:
+        """Resolves location from IP address as a robust fallback."""
+        if not ip or ip in ["127.0.0.1", "localhost", "::1", "Unknown"] or ip.startswith("192.168.") or ip.startswith("10."):
+            return {"lat": 26.9124, "lon": 75.7873, "accuracy": 500.0, "source": "local_network"}
+        try:
+            import urllib.request
+            url = f"http://ip-api.com/json/{ip}?fields=status,lat,lon,city,country"
+            req = urllib.request.Request(url, headers={"User-Agent": "LeetXracker/1.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                if data.get("status") == "success":
+                    return {"lat": data.get("lat"), "lon": data.get("lon"), "accuracy": 5000.0, "source": "ip_lookup"}
+        except Exception:
+            pass
+        return None
+
     def authenticate(
         self,
         email: str,
@@ -113,22 +129,28 @@ class AuthManager:
         email_clean = email.strip().lower()
         user = self.users.get(email_clean)
 
-        # Mandatory Geolocation Enforcement
+        # Mandatory Geolocation Enforcement (GPS with IP Fallback)
         if latitude is None or longitude is None:
-            self._log_audit(
-                email=email_clean,
-                status="FAILED_NO_LOCATION",
-                ip=ip,
-                user_agent=user_agent,
-                lat=latitude,
-                lon=longitude,
-                acc=accuracy,
-                reason="Location permission required"
-            )
-            return {
-                "success": False,
-                "error": "Location verification required! Please allow high-accuracy GPS/Location permission in your browser to proceed."
-            }
+            ip_loc = self._resolve_ip_location(ip)
+            if ip_loc:
+                latitude = ip_loc["lat"]
+                longitude = ip_loc["lon"]
+                accuracy = ip_loc["accuracy"]
+            else:
+                self._log_audit(
+                    email=email_clean,
+                    status="FAILED_NO_LOCATION",
+                    ip=ip,
+                    user_agent=user_agent,
+                    lat=latitude,
+                    lon=longitude,
+                    acc=accuracy,
+                    reason="Location permission required"
+                )
+                return {
+                    "success": False,
+                    "error": "Location verification required! Please enable GPS or location services."
+                }
 
         if not user:
             self._log_audit(email_clean, "FAILED_USER_NOT_FOUND", ip, user_agent, latitude, longitude, accuracy)

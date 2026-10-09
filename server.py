@@ -18,6 +18,21 @@ from auth_manager import auth_mgr, get_current_user, require_admin
 
 app = FastAPI(title="LeetXracker - Multi-AI Auto Engine")
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "error": exc.detail}
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"[Server Error] {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "error": f"Server error: {str(exc)}"}
+    )
+
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
