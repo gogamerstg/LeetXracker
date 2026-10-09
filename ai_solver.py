@@ -14,10 +14,10 @@ class MultiAISolver:
         "auto/coding:fast"
     ]
     GROQ_FALLBACKS = [
-        "openai/gpt-oss-120b",
-        "qwen/qwen3.8-27b",
         "llama-3.3-70b-versatile",
-        "openai/gpt-oss-20b"
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+        "llama-3.1-8b-instant"
     ]
     GEMINI_FALLBACKS = [
         "gemini-flash-latest",

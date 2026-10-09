@@ -217,6 +217,7 @@ class BotRunner:
         skip_solved = user_cfg.get("skip_already_solved", True)
 
         skip_offset = 0
+        seen_in_session = set()
 
         while self.status == "RUNNING":
             if target_count > 0 and self.solved_count >= target_count:
@@ -241,8 +242,6 @@ class BotRunner:
                 if user_cfg.get("randomize_order", False):
                     random.shuffle(problems)
 
-                processed_any = False
-
                 for prob in problems:
                     if self.status != "RUNNING":
                         break
@@ -250,11 +249,19 @@ class BotRunner:
                     if target_count > 0 and self.solved_count >= target_count:
                         break
 
-                    frontend_id = prob.get("frontendQuestionId") or prob.get("questionFrontendId")
+                    frontend_id = str(prob.get("frontendQuestionId") or prob.get("questionFrontendId") or "")
                     title = prob.get("title")
                     title_slug = prob.get("titleSlug")
                     is_paid = prob.get("paidOnly", False)
                     status_flag = prob.get("status")  # "ac", "notac", None
+
+                    if not frontend_id or not title_slug:
+                        continue
+
+                    # Avoid re-attempting problems seen in this session
+                    if frontend_id in seen_in_session:
+                        continue
+                    seen_in_session.add(frontend_id)
 
                     # Check skip rules
                     if skip_paid and is_paid:
@@ -264,10 +271,9 @@ class BotRunner:
                         continue
 
                     # Also check our local history for already accepted
-                    if skip_solved and any(h.get("id") == frontend_id and h.get("status") == "Accepted" for h in self.history):
+                    if skip_solved and any(str(h.get("id")) == frontend_id and h.get("status") == "Accepted" for h in self.history):
                         continue
 
-                    processed_any = True
                     self.current_problem = {
                         "id": frontend_id,
                         "title": title,
@@ -360,6 +366,9 @@ class BotRunner:
                             f"Problem #{frontend_id} not accepted: {status_msg}",
                             "warning"
                         )
+                        if "429" in str(status_msg) or "Rate limit" in str(status_msg):
+                            self.add_log("LeetCode rate limit encountered! Cooling down 15s...", "warning")
+                            await asyncio.sleep(15)
 
                     # Cooldown delay between questions
                     self.current_problem = None
@@ -370,8 +379,8 @@ class BotRunner:
                             self.add_log(f"Waiting {current_delay}s cooldown...", "info")
                             await asyncio.sleep(current_delay)
 
-                if not processed_any:
-                    skip_offset += 25
+                # Advance batch offset to fetch the next set of problems
+                skip_offset += len(problems)
 
             except asyncio.CancelledError:
                 break
