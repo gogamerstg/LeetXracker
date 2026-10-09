@@ -93,9 +93,6 @@ class ConfigManager:
                     user_cfg.update(json.load(f))
             except Exception as e:
                 print(f"[Config] Error loading user settings for {email}: {e}")
-        elif email == "surajdas@surajdas.com":
-            # For super admin, seed with global/env settings
-            self.save_user_settings(email, self.settings)
         return user_cfg
 
     def save_user_settings(self, email: str, updates: Dict[str, Any]) -> Dict[str, Any]:
