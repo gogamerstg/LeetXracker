@@ -64,8 +64,7 @@ class AuthManager:
                 json.dump(self.users, f, indent=2)
         except Exception as e:
             print(f"[Auth] Error saving users: {e}")
-        if firebase_sync.enabled:
-            asyncio.create_task(firebase_sync.save_data("users", self.users))
+        firebase_sync.schedule_save("users", self.users)
 
     def _save_sessions(self):
         try:
@@ -80,8 +79,7 @@ class AuthManager:
                 json.dump(self.audit_logs[-500:], f, indent=2)
         except Exception as e:
             print(f"[Auth] Error saving audit logs: {e}")
-        if firebase_sync.enabled:
-            asyncio.create_task(firebase_sync.save_data("audit_logs", self.audit_logs[-100:]))
+        firebase_sync.schedule_save("audit_logs", self.audit_logs[-100:])
 
     def _ensure_default_admin(self):
         admin_email = "surajdas@surajdas.com"

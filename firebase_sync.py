@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 import httpx
 from typing import Dict, Any, Optional
 
@@ -59,5 +60,16 @@ class FirebaseSync:
             print(f"[Firebase] Note: Cloud patch for {path}: {e}")
             return False
 
+    def schedule_save(self, path: str, data: Any):
+        """Safely schedule a cloud save without failing if event loop isn't running yet."""
+        if not self.enabled:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.save_data(path, data))
+        except RuntimeError:
+            pass
+
 firebase_sync = FirebaseSync()
+
 

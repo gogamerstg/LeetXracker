@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any, List
+from firebase_sync import firebase_sync
 
 BASE_DIR = Path(__file__).resolve().parent
 SETTINGS_FILE = BASE_DIR / "settings.json"
@@ -111,6 +112,9 @@ class ConfigManager:
         # If super admin, keep global settings in sync
         if email == "surajdas@surajdas.com":
             self.save(updates)
+
+        safe_email = email.replace(".", "_")
+        firebase_sync.schedule_save(f"settings/{safe_email}", current)
         return current
 
 config = ConfigManager()

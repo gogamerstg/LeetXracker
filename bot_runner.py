@@ -94,9 +94,8 @@ class BotRunner:
             except Exception as e:
                 print(f"[BotRunner] Error saving global history: {e}")
 
-        if firebase_sync.enabled:
-            safe_email = target_email.replace(".", "_")
-            asyncio.create_task(firebase_sync.save_data(f"history/{safe_email}", self.history[-100:]))
+        safe_email = target_email.replace(".", "_")
+        firebase_sync.schedule_save(f"history/{safe_email}", self.history[-100:])
 
     def add_log(self, message: str, level: str = "info", extra: Dict[str, Any] = None):
         log_entry = {
