@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode Auto-Pilot AI Solver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0a0d14', 800: '#111726', 700: '#1a2238', 600: '#232f4d' },
+                        cyber: { emerald: '#10b981', cyan: '#06b6d4', amber: '#f59e0b', rose: '#f43f5e' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #080b11; color: #e2e8f0; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0d131f; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #232f4d; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #374151; }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .animate-pulse-slow { animation: pulse-slow 2s infinite ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col custom-scrollbar">
+
+<!-- =================== LOGIN OVERLAY =================== -->
+<div id="loginOverlay" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="glass-panel rounded-3xl max-w-md w-full p-8 space-y-6 border border-gray-700 shadow-2xl">
+        <div class="text-center">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 mx-auto mb-4">
+                <i data-lucide="shield-check" class="w-8 h-8 text-gray-950 stroke-[2.5]"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white mb-1">LeetCode Auto-Pilot</h1>
+            <p class="text-xs text-gray-400">Ultra-Secure Multi-AI Engine. Location verification required.</p>
+        </div>
+        <div id="loginLocationStatus" class="text-center text-xs text-amber-400 py-2 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20">Requesting device location...</div>
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-gray-300 block mb-1">Email</label>
+                <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-xs text-gray-300 block mb-1">Password</label>
+                <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+        </div>
+        <div id="loginError" class="hidden text-xs text-rose-400 py-2 px-3 bg-rose-500/10 rounded-xl border border-rose-500/20"></div>
+        <button id="loginBtn" onclick="doLogin()" disabled class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-gray-950 font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 transition text-sm">Verifying Location...</button>
+    </div>
+</div>
+
+<!-- =================== NAV BAR =================== -->
+<header id="mainHeader" class="glass-panel sticky top-0 z-40 border-b border-gray-800 px-4 lg:px-8 py-3.5 flex items-center justify-between hidden">
+    <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <i data-lucide="cpu" class="w-5 h-5 text-gray-950 stroke-[2.5]"></i>
+        </div>
+        <div>
+            <div class="flex items-center space-x-2">
+                <h1 class="text-lg font-bold tracking-tight text-white">LeetCode Auto-Pilot</h1>
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Multi-AI</span>
+            </div>
+            <p class="text-xs text-gray-400 hidden sm:block">Automated Free Multi-Model Problem Solving Engine</p>
+        </div>
+    </div>
+    <div class="flex items-center space-x-2 sm:space-x-3">
+        <div id="statusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-900/80 border border-gray-700 text-xs font-medium text-gray-300">
+            <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+            <span id="statusText">IDLE</span>
+        </div>
+        <button id="btnAdminNav" onclick="toggleAdminModal(true)" class="hidden p-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/50 border border-purple-500/30 text-purple-300 transition flex items-center space-x-1.5 text-xs font-medium">
+            <i data-lucide="shield" class="w-4 h-4"></i><span class="hidden sm:inline">Admin</span>
+        </button>
+        <button onclick="toggleSettingsModal(true)" class="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 border border-gray-700 text-gray-300 transition flex items-center space-x-1.5 text-xs font-medium">
+            <i data-lucide="settings" class="w-4 h-4"></i><span class="hidden sm:inline">Settings</span>
+        </button>
+        <button onclick="doLogout()" class="p-2 rounded-xl bg-gray-800/80 hover:bg-rose-900/40 border border-gray-700 text-gray-300 hover:text-rose-300 transition flex items-center space-x-1.5 text-xs font-medium">
+            <i data-lucide="log-out" class="w-4 h-4"></i><span class="hidden sm:inline" id="loggedInUserLabel">Logout</span>
+        </button>
+    </div>
+</header>
+
+<!-- =================== MAIN DASHBOARD =================== -->
+<main id="mainDashboard" class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6 hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Control Card -->
+        <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between space-y-5 lg:col-span-1 shadow-xl">
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-semibold tracking-wider text-gray-400 uppercase">Engine Controls</span>
+                    <span id="userAccountInfo" class="text-xs text-emerald-400 font-mono">Not Connected</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Target Count</label>
+                        <input id="quickTarget" type="number" min="0" value="50" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none" placeholder="0 for infinite">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Difficulty</label>
+                        <select id="quickDifficulty" onchange="syncQuickSettings()" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                            <option value="ALL">All Mixed</option>
+                            <option value="EASY">Easy</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HARD">Hard</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Language</label>
+                        <select id="quickLanguage" onchange="syncQuickSettings()" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none">
+                            <option value="MIX">MIX (Random / Any)</option>
+                            <option value="python3">Python 3</option>
+                            <option value="cpp">C++</option>
+                            <option value="java">Java</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="golang">Go</option>
+                            <option value="rust">Rust</option>
+                            <option value="typescript">TypeScript</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">Delay (Sec)</label>
+                        <input id="quickDelay" type="number" min="0" value="1" oninput="syncQuickSettings()" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="space-y-2 pt-2 border-t border-gray-800/80">
+                    <label class="flex items-center space-x-2.5 cursor-pointer text-xs text-gray-300 select-none">
+                        <input id="chkSkipSolved" type="checkbox" checked onchange="syncQuickSettings()" class="w-4 h-4 rounded bg-gray-900 border-gray-700 text-emerald-500 focus:ring-0 cursor-pointer">
+                        <span>Skip Already Solved (AC)</span>
+                    </label>
+                    <label class="flex items-center space-x-2.5 cursor-pointer text-xs text-gray-300 select-none">
+                        <input id="chkSkipPaid" type="checkbox" checked onchange="syncQuickSettings()" class="w-4 h-4 rounded bg-gray-900 border-gray-700 text-emerald-500 focus:ring-0 cursor-pointer">
+                        <span>Skip Premium / Paid</span>
+                    </label>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 pt-2">
+                <button id="btnStart" onclick="startBot()" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-gray-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-2">
+                    <i data-lucide="play" class="w-5 h-5 fill-current"></i><span>Start Auto-Pilot</span>
+                </button>
+                <button id="btnPause" onclick="pauseBot()" class="hidden bg-gray-800 hover:bg-gray-700 text-amber-400 border border-amber-500/30 font-bold py-3 px-4 rounded-xl transition flex items-center justify-center">
+                    <i data-lucide="pause" class="w-5 h-5"></i>
+                </button>
+                <button id="btnStop" onclick="stopBot()" class="hidden bg-gray-800 hover:bg-rose-950/40 text-rose-400 border border-rose-500/30 font-bold py-3 px-4 rounded-xl transition flex items-center justify-center">
+                    <i data-lucide="square" class="w-5 h-5 fill-current"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="glass-panel rounded-2xl p-4"><span class="text-xs text-gray-400">Solved</span><div class="flex items-baseline space-x-2 mt-2"><span id="statSolved" class="text-2xl lg:text-3xl font-bold font-mono text-emerald-400">0</span><span id="statTarget" class="text-xs text-gray-500 font-mono">/ 50</span></div></div>
+                <div class="glass-panel rounded-2xl p-4"><span class="text-xs text-gray-400">Failed</span><div class="mt-2"><span id="statFailed" class="text-2xl lg:text-3xl font-bold font-mono text-rose-400">0</span></div></div>
+                <div class="glass-panel rounded-2xl p-4"><span class="text-xs text-gray-400">Success Rate</span><div class="mt-2"><span id="statRate" class="text-2xl lg:text-3xl font-bold font-mono text-cyan-400">100%</span></div></div>
+                <div class="glass-panel rounded-2xl p-4"><span class="text-xs text-gray-400">Uptime</span><div class="mt-2"><span id="statUptime" class="text-2xl lg:text-3xl font-bold font-mono text-gray-300">00:00:00</span></div></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-cyan-500">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center space-x-1.5">
+                        <i data-lucide="loader" id="currentSpinner" class="w-3.5 h-3.5 animate-spin hidden"></i><span>Active Execution Pipeline</span>
+                    </span>
+                    <span id="currentDiffBadge" class="hidden px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
+                </div>
+                <div id="currentProblemBox" class="py-2">
+                    <h2 id="currentProblemTitle" class="text-base lg:text-lg font-semibold text-gray-200">Waiting to start engine...</h2>
+                    <p id="currentProblemStep" class="text-xs text-gray-400 mt-1 font-mono">Click 'Start Auto-Pilot' or verify your credentials in Settings.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs & History -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-panel rounded-2xl p-5 flex flex-col h-96">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+                <div class="flex items-center space-x-2"><i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i><h3 class="text-sm font-bold text-gray-200 uppercase tracking-wider">Live System Logs</h3></div>
+                <button onclick="clearLogsUI()" class="text-xs text-gray-500 hover:text-gray-300 transition">Clear</button>
+            </div>
+            <div id="logContainer" class="flex-1 overflow-y-auto font-mono text-xs p-3 space-y-1.5 custom-scrollbar bg-gray-950/60 rounded-xl mt-3">
+                <div class="text-gray-500">[System] Ready.</div>
+            </div>
+        </div>
+        <div class="glass-panel rounded-2xl p-5 flex flex-col h-96">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+                <div class="flex items-center space-x-2"><i data-lucide="history" class="w-4 h-4 text-cyan-400"></i><h3 class="text-sm font-bold text-gray-200 uppercase tracking-wider">Submissions History</h3></div>
+                <div class="flex items-center space-x-3">
+                    <span id="historyCount" class="text-xs text-gray-400 font-mono">0</span>
+                    <a href="/api/history/download" download class="text-xs px-3 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg border border-cyan-500/30 transition flex items-center space-x-1 font-semibold"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Download ZIP</span></a>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar mt-3">
+                <table class="w-full text-left text-xs">
+                    <thead class="text-gray-400 border-b border-gray-800/60 sticky top-0 bg-gray-900/90 backdrop-blur"><tr><th class="pb-2">#</th><th class="pb-2">Problem</th><th class="pb-2">Status</th><th class="pb-2">Lang</th><th class="pb-2">AI</th><th class="pb-2">Runtime/Mem</th><th class="pb-2 text-right">Code</th></tr></thead>
+                    <tbody id="historyTableBody" class="divide-y divide-gray-800/40"><tr><td colspan="7" class="py-8 text-center text-gray-500">No submissions yet.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- =================== SETTINGS MODAL =================== -->
+<div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-panel rounded-3xl max-w-2xl w-full p-6 lg:p-8 space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar border border-gray-700 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><i data-lucide="sliders" class="w-4 h-4"></i></div>
+                <div><h2 class="text-lg font-bold text-white">Settings & Credentials</h2><p class="text-xs text-gray-400">LeetCode session + Free AI APIs</p></div>
+            </div>
+            <button onclick="toggleSettingsModal(false)" class="text-gray-400 hover:text-white p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- LeetCode Cookies -->
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <label class="text-sm font-semibold text-emerald-400 flex items-center space-x-1.5"><i data-lucide="key" class="w-4 h-4"></i><span>1. LeetCode Cookies</span></label>
+                <button onclick="testLeetCodeAuth()" class="text-xs px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 transition">Test Connection</button>
+            </div>
+            <p class="text-xs text-gray-400">Login to <b>leetcode.com</b> -> F12 -> <b>Application -> Cookies</b> -> copy:</p>
+            <div><label class="text-xs text-gray-300 block mb-1">LEETCODE_SESSION Token</label><input id="inpSession" type="password" placeholder="eyJ0eXAi..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"></div>
+            <div><label class="text-xs text-gray-300 block mb-1">csrftoken</label><input id="inpCsrf" type="text" placeholder="e.g. 7abc98124..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"></div>
+        </div>
+
+        <!-- AI Providers -->
+        <div class="space-y-4 pt-3 border-t border-gray-800">
+            <label class="text-sm font-semibold text-cyan-400 flex items-center space-x-1.5"><i data-lucide="sparkles" class="w-4 h-4"></i><span>2. AI Providers (Multi-AI Failover)</span></label>
+
+            <!-- OmniRoute -->
+            <div class="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-800/40 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2"><span class="w-2 h-2 rounded-full bg-cyan-400"></span><label class="text-xs text-cyan-300 font-semibold uppercase tracking-wider">OmniRoute / Local Proxy</label></div>
+                    <button id="btnFetchOmniModels" onclick="fetchOmniModels()" class="text-xs px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 rounded-lg border border-cyan-500/30 transition">Auto-Extract Models</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div><label class="text-[11px] text-gray-400 block mb-1">Base URL</label><input id="inpOmniBaseUrl" type="text" placeholder="http://localhost:20128/v1" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none"></div>
+                    <div><label class="text-[11px] text-gray-400 block mb-1">API Key (optional)</label><input id="inpOmniApiKey" type="password" placeholder="sk-..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none"></div>
+                </div>
+                <div><label class="text-[11px] text-gray-400 block mb-1">Model</label><input id="inpOmniModel" list="omniModelsList" type="text" placeholder="auto/best-coding" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none"><datalist id="omniModelsList"></datalist></div>
+            </div>
+
+            <!-- Groq -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><label class="text-xs text-gray-300 font-medium">Groq API Key</label><a href="https://console.groq.com/keys" target="_blank" class="text-xs text-cyan-400 hover:underline">Get Free Key</a></div>
+                <input id="inpGroq" type="password" placeholder="gsk_..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none">
+                <input id="inpGroqModel" type="text" placeholder="openai/gpt-oss-120b" class="w-full bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-gray-300 font-mono focus:border-cyan-500 focus:outline-none">
+            </div>
+
+            <!-- Gemini -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><label class="text-xs text-gray-300 font-medium">Google Gemini API Key</label><a href="https://aistudio.google.com/apikey" target="_blank" class="text-xs text-cyan-400 hover:underline">Get Free Key</a></div>
+                <input id="inpGemini" type="password" placeholder="AIzaSy..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none">
+                <input id="inpGeminiModel" type="text" placeholder="gemini-flash-latest" class="w-full bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-gray-300 font-mono focus:border-cyan-500 focus:outline-none">
+            </div>
+
+            <!-- OpenRouter -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><label class="text-xs text-gray-300 font-medium">OpenRouter API Key</label><a href="https://openrouter.ai/keys" target="_blank" class="text-xs text-cyan-400 hover:underline">Get Free Key</a></div>
+                <input id="inpOpenRouter" type="password" placeholder="sk-or-v1-..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none">
+                <input id="inpOpenRouterModel" type="text" placeholder="nvidia/nemotron-3.5-lightning:free" class="w-full bg-gray-900/60 border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-gray-300 font-mono focus:border-cyan-500 focus:outline-none">
+            </div>
+        </div>
+
+        <div class="pt-4 border-t border-gray-800 flex items-center justify-end space-x-3">
+            <button onclick="toggleSettingsModal(false)" class="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-sm font-medium text-gray-300 transition">Cancel</button>
+            <button onclick="saveSettings()" class="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- =================== ADMIN MODAL =================== -->
+<div id="adminModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-panel rounded-3xl max-w-3xl w-full p-6 lg:p-8 space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar border border-purple-700/40 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center"><i data-lucide="shield" class="w-4 h-4"></i></div>
+                <div><h2 class="text-lg font-bold text-white">Admin Panel</h2><p class="text-xs text-gray-400">User Management & Audit Logs</p></div>
+            </div>
+            <button onclick="toggleAdminModal(false)" class="text-gray-400 hover:text-white p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- Create User -->
+        <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/30 space-y-3">
+            <h3 class="text-sm font-semibold text-purple-300">Create New User</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input id="adminNewEmail" type="email" placeholder="Email" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-purple-500 focus:outline-none">
+                <input id="adminNewPass" type="password" placeholder="Password (min 6)" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-purple-500 focus:outline-none">
+                <input id="adminNewName" type="text" placeholder="Display Name" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-purple-500 focus:outline-none">
+            </div>
+            <div class="flex items-center space-x-3">
+                <select id="adminNewRole" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"><option value="user">User</option><option value="admin">Admin</option></select>
+                <button onclick="adminCreateUser()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition">Create User</button>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div>
+            <h3 class="text-sm font-semibold text-gray-300 mb-3">Registered Users</h3>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-xs text-left">
+                    <thead class="text-gray-400 border-b border-gray-800"><tr><th class="pb-2">Email</th><th class="pb-2">Name</th><th class="pb-2">Role</th><th class="pb-2">Status</th><th class="pb-2">Last Login</th><th class="pb-2">Last IP</th><th class="pb-2 text-right">Actions</th></tr></thead>
+                    <tbody id="adminUsersBody" class="divide-y divide-gray-800/40"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Audit Logs -->
+        <div>
+            <h3 class="text-sm font-semibold text-gray-300 mb-3">Recent Audit Logs (Location + IP)</h3>
+            <div class="max-h-60 overflow-y-auto custom-scrollbar bg-gray-950/60 rounded-xl p-3">
+                <table class="w-full text-[11px] text-left">
+                    <thead class="text-gray-500 border-b border-gray-800"><tr><th class="pb-1">Time</th><th class="pb-1">Email</th><th class="pb-1">Status</th><th class="pb-1">IP</th><th class="pb-1">Lat/Lon</th><th class="pb-1">Accuracy</th></tr></thead>
+                    <tbody id="adminAuditBody" class="divide-y divide-gray-800/30"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =================== CODE VIEWER MODAL =================== -->
+<div id="codeModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-3xl w-full p-5 flex flex-col max-h-[85vh] border border-gray-700 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+            <div><h3 id="codeModalTitle" class="text-sm font-bold text-white">Solution Code</h3><p id="codeModalMeta" class="text-xs text-gray-400 font-mono mt-0.5"></p></div>
+            <div class="flex items-center space-x-2">
+                <button onclick="copyModalCode()" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition flex items-center space-x-1 font-semibold"><i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Copy</span></button>
+                <button onclick="toggleCodeModal(false)" class="text-gray-400 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+        <pre class="flex-1 overflow-y-auto mt-3 p-4 bg-gray-950 rounded-xl font-mono text-xs text-emerald-300 custom-scrollbar border border-gray-800/80 whitespace-pre"><code id="codeModalContent"></code></pre>
+    </div>
+</div>
+
+<!-- =================== SCRIPT =================== -->
+<script>
+lucide.createIcons();
+
+let pollInterval = null;
+let currentHistoryData = [];
+let currentUserInfo = null;
+let geoLat = null, geoLon = null, geoAcc = null;
+
+// ── Auth helpers ──
+async function apiFetch(url, opts = {}) {
+    opts.credentials = 'same-origin';
+    const res = await fetch(url, opts);
+    if (res.status === 401) {
+        showLogin();
+        throw new Error('Session expired');
+    }
+    return res;
+}
+function jsonPost(url, body) {
+    return apiFetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+}
+
+// ── Geolocation ──
+function requestGeo() {
+    const el = document.getElementById('loginLocationStatus');
+    const btn = document.getElementById('loginBtn');
+    if (!navigator.geolocation) {
+        el.className = 'text-center text-xs text-rose-400 py-2 px-3 bg-rose-500/10 rounded-xl border border-rose-500/20';
+        el.textContent = 'Geolocation not supported by this browser. Access denied.';
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            geoLat = pos.coords.latitude;
+            geoLon = pos.coords.longitude;
+            geoAcc = pos.coords.accuracy;
+            el.className = 'text-center text-xs text-emerald-400 py-2 px-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20';
+            el.innerHTML = `Location verified (${geoLat.toFixed(4)}, ${geoLon.toFixed(4)}) Accuracy: ${geoAcc.toFixed(0)}m`;
+            btn.disabled = false;
+            btn.textContent = 'Login';
+        },
+        (err) => {
+            el.className = 'text-center text-xs text-rose-400 py-2 px-3 bg-rose-500/10 rounded-xl border border-rose-500/20';
+            el.textContent = 'Location permission DENIED. You must allow GPS/Location to proceed.';
+            btn.disabled = true;
+            btn.textContent = 'Location Required';
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+}
+
+async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+    if (!email || !password) { errEl.textContent = 'Enter email and password.'; errEl.classList.remove('hidden'); return; }
+    if (geoLat === null) { errEl.textContent = 'Location not verified. Please allow GPS permission.'; errEl.classList.remove('hidden'); return; }
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            body: JSON.stringify({ email, password, latitude: geoLat, longitude: geoLon, accuracy: geoAcc })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+            currentUserInfo = data.user;
+            showDashboard();
+        } else {
+            errEl.textContent = data.error || data.detail || (res.status === 404 ? 'Server needs restart to load new auth routes.' : 'Invalid email or password.');
+            errEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errEl.textContent = 'Network error: ' + e.message;
+        errEl.classList.remove('hidden');
+    }
+}
+
+async function doLogout() {
+    try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch(e) {}
+    showLogin();
+}
+
+async function checkSession() {
+    try {
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.authenticated) {
+                currentUserInfo = data.user;
+                showDashboard();
+                return;
+            }
+        }
+    } catch(e) {}
+    showLogin();
+}
+
+function showLogin() {
+    currentUserInfo = null;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    document.getElementById('loginOverlay').classList.remove('hidden');
+    document.getElementById('mainHeader').classList.add('hidden');
+    document.getElementById('mainDashboard').classList.add('hidden');
+    requestGeo();
+    lucide.createIcons();
+}
+
+function showDashboard() {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('mainHeader').classList.remove('hidden');
+    document.getElementById('mainDashboard').classList.remove('hidden');
+    if (currentUserInfo) {
+        document.getElementById('loggedInUserLabel').textContent = currentUserInfo.email.split('@')[0];
+        if (currentUserInfo.role === 'admin') {
+            document.getElementById('btnAdminNav').classList.remove('hidden');
+            document.getElementById('btnAdminNav').style.display = 'flex';
+        } else {
+            document.getElementById('btnAdminNav').classList.add('hidden');
+        }
+    }
+    lucide.createIcons();
+    fetchSettings();
+    updateBotState();
+    if (!pollInterval) pollInterval = setInterval(updateBotState, 2000);
+}
+
+// ── Admin Panel ──
+function toggleAdminModal(show) {
+    const m = document.getElementById('adminModal');
+    if (show) { m.classList.remove('hidden'); loadAdminData(); lucide.createIcons(); }
+    else m.classList.add('hidden');
+}
+
+async function loadAdminData() {
+    try {
+        const res = await apiFetch('/api/admin/users');
+        const data = await res.json();
+        if (!data.success) return;
+        // Users
+        const tbody = document.getElementById('adminUsersBody');
+        tbody.innerHTML = data.users.map(u => {
+            const isSuperAdmin = u.email === 'surajdas@surajdas.com';
+            const statusBadge = u.is_active
+                ? '<span class="text-emerald-400">Active</span>'
+                : '<span class="text-rose-400">Disabled</span>';
+            const loc = u.last_location ? `${(u.last_location.lat||0).toFixed(3)}, ${(u.last_location.lon||0).toFixed(3)}` : '-';
+            return `<tr class="hover:bg-gray-800/30">
+                <td class="py-2 font-mono">${u.email}</td>
+                <td class="py-2">${u.name||'-'}</td>
+                <td class="py-2"><span class="px-2 py-0.5 rounded text-xs ${u.role==='admin'?'bg-purple-500/10 text-purple-400 border border-purple-500/20':'bg-gray-800 text-gray-400'}">${u.role}</span></td>
+                <td class="py-2">${statusBadge}</td>
+                <td class="py-2 text-gray-500">${u.last_login||'Never'}</td>
+                <td class="py-2 text-gray-500 font-mono">${u.last_ip||'-'}</td>
+                <td class="py-2 text-right space-x-1">
+                    ${isSuperAdmin ? '<span class="text-[10px] text-gray-600">Protected</span>' : `
+                    <button onclick="adminToggleUser('${u.email}',${!u.is_active})" class="px-2 py-1 rounded text-[11px] ${u.is_active?'bg-amber-500/10 text-amber-400 border border-amber-500/20':'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${u.is_active?'Disable':'Enable'}</button>
+                    <button onclick="adminDeleteUser('${u.email}')" class="px-2 py-1 rounded text-[11px] bg-rose-500/10 text-rose-400 border border-rose-500/20">Delete</button>`}
+                </td>
+            </tr>`;
+        }).join('');
+
+        // Audit logs
+        const auditBody = document.getElementById('adminAuditBody');
+        auditBody.innerHTML = (data.audit_logs||[]).map(l => {
+            const sc = l.status === 'SUCCESS' ? 'text-emerald-400' : 'text-rose-400';
+            return `<tr><td class="py-1 text-gray-500">${l.timestamp}</td><td class="py-1 font-mono">${l.email}</td><td class="py-1 ${sc}">${l.status}</td><td class="py-1 font-mono text-gray-500">${l.ip}</td><td class="py-1 font-mono">${l.lat!=null?l.lat.toFixed(4)+', '+l.lon.toFixed(4):'-'}</td><td class="py-1">${l.accuracy_meters!=null?l.accuracy_meters.toFixed(0)+'m':'-'}</td></tr>`;
+        }).join('');
+    } catch(e) { console.error('Admin load error', e); }
+}
+
+async function adminCreateUser() {
+    const email = document.getElementById('adminNewEmail').value.trim();
+    const password = document.getElementById('adminNewPass').value;
+    const name = document.getElementById('adminNewName').value.trim();
+    const role = document.getElementById('adminNewRole').value;
+    if (!email || !password) { alert('Email and password required.'); return; }
+    try {
+        const res = await jsonPost('/api/admin/users', { email, password, name, role });
+        const data = await res.json();
+        alert(data.message || data.error || 'Done');
+        if (data.success) { document.getElementById('adminNewEmail').value=''; document.getElementById('adminNewPass').value=''; document.getElementById('adminNewName').value=''; }
+        loadAdminData();
+    } catch(e) { alert('Error: '+e.message); }
+}
+
+async function adminToggleUser(email, active) {
+    try { const res = await jsonPost(`/api/admin/users/${encodeURIComponent(email)}/toggle`, { is_active: active }); const d = await res.json(); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
+}
+
+async function adminDeleteUser(email) {
+    if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+    try { const res = await apiFetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' }); const d = await res.json(); alert(d.message||d.error); loadAdminData(); } catch(e) { alert(e.message); }
+}
+
+// ── Settings ──
+function toggleSettingsModal(show) {
+    const m = document.getElementById('settingsModal');
+    if (show) { fetchSettings(); m.classList.remove('hidden'); lucide.createIcons(); }
+    else m.classList.add('hidden');
+}
+
+async function fetchSettings() {
+    try {
+        const res = await apiFetch('/api/settings');
+        const data = await res.json();
+        document.getElementById('inpSession').value = data.leetcode_session || '';
+        document.getElementById('inpCsrf').value = data.csrf_token || '';
+        document.getElementById('inpOmniBaseUrl').value = data.omniroute_base_url || 'http://localhost:20128/v1';
+        document.getElementById('inpOmniApiKey').value = data.omniroute_api_key || '';
+        document.getElementById('inpOmniModel').value = data.omniroute_model || 'auto/best-coding';
+        document.getElementById('inpGroq').value = data.groq_api_key || '';
+        document.getElementById('inpGemini').value = data.gemini_api_key || '';
+        document.getElementById('inpOpenRouter').value = data.openrouter_api_key || '';
+        document.getElementById('inpGroqModel').value = data.groq_model || 'openai/gpt-oss-120b';
+        document.getElementById('inpGeminiModel').value = data.gemini_model || 'gemini-flash-latest';
+        document.getElementById('inpOpenRouterModel').value = data.openrouter_model || 'nvidia/nemotron-3.5-lightning:free';
+        document.getElementById('quickTarget').value = data.target_count ?? 50;
+        document.getElementById('quickDelay').value = data.delay_seconds !== undefined ? data.delay_seconds : 1;
+        document.getElementById('quickDifficulty').value = data.difficulty || 'ALL';
+        document.getElementById('quickLanguage').value = data.language || 'MIX';
+        document.getElementById('chkSkipSolved').checked = data.skip_already_solved !== false;
+        document.getElementById('chkSkipPaid').checked = data.skip_paid_only !== false;
+    } catch(e) { console.error('fetchSettings', e); }
+}
+
+async function syncQuickSettings() {
+    const payload = {
+        target_count: parseInt(document.getElementById('quickTarget').value) || 0,
+        delay_seconds: parseInt(document.getElementById('quickDelay').value) || 1,
+        difficulty: document.getElementById('quickDifficulty').value,
+        language: document.getElementById('quickLanguage').value,
+        skip_already_solved: document.getElementById('chkSkipSolved').checked,
+        skip_paid_only: document.getElementById('chkSkipPaid').checked
+    };
+    try { await jsonPost('/api/settings', payload); } catch(e) {}
+}
+
+async function saveSettings() {
+    const payload = {
+        leetcode_session: document.getElementById('inpSession').value.trim(),
+        csrf_token: document.getElementById('inpCsrf').value.trim(),
+        omniroute_base_url: document.getElementById('inpOmniBaseUrl').value.trim(),
+        omniroute_api_key: document.getElementById('inpOmniApiKey').value.trim(),
+        omniroute_model: document.getElementById('inpOmniModel').value.trim(),
+        groq_api_key: document.getElementById('inpGroq').value.trim(),
+        gemini_api_key: document.getElementById('inpGemini').value.trim(),
+        openrouter_api_key: document.getElementById('inpOpenRouter').value.trim(),
+        groq_model: document.getElementById('inpGroqModel').value.trim() || 'openai/gpt-oss-120b',
+        gemini_model: document.getElementById('inpGeminiModel').value.trim() || 'gemini-flash-latest',
+        openrouter_model: document.getElementById('inpOpenRouterModel').value.trim() || 'nvidia/nemotron-3.5-lightning:free',
+        target_count: parseInt(document.getElementById('quickTarget').value) || 0,
+        delay_seconds: parseInt(document.getElementById('quickDelay').value) || 1,
+        difficulty: document.getElementById('quickDifficulty').value,
+        language: document.getElementById('quickLanguage').value,
+        skip_already_solved: document.getElementById('chkSkipSolved').checked,
+        skip_paid_only: document.getElementById('chkSkipPaid').checked
+    };
+    try {
+        const res = await jsonPost('/api/settings', payload);
+        if (res.ok) { toggleSettingsModal(false); updateBotState(); }
+    } catch(e) { alert('Error: '+e.message); }
+}
+
+async function fetchOmniModels() {
+    const baseUrl = document.getElementById('inpOmniBaseUrl').value.trim();
+    const apiKey = document.getElementById('inpOmniApiKey').value.trim();
+    const btn = document.getElementById('btnFetchOmniModels');
+    if (!baseUrl) { alert('Enter OmniRoute Base URL first.'); return; }
+    btn.disabled = true; btn.textContent = 'Extracting...';
+    try {
+        await jsonPost('/api/settings', { omniroute_base_url: baseUrl, omniroute_api_key: apiKey });
+        const res = await jsonPost('/api/fetch-models', { base_url: baseUrl, api_key: apiKey });
+        const data = await res.json();
+        if (data.success && data.models && data.models.length > 0) {
+            document.getElementById('omniModelsList').innerHTML = data.models.map(m => `<option value="${m}">`).join('');
+            let chosen = document.getElementById('inpOmniModel').value.trim();
+            if (!chosen) { chosen = data.models.find(m => m.includes('coding')) || data.models[0]; document.getElementById('inpOmniModel').value = chosen; }
+            await jsonPost('/api/settings', { omniroute_base_url: baseUrl, omniroute_api_key: apiKey, omniroute_model: chosen });
+            alert(`Connected! Found ${data.models.length} models.\nTop: ${data.models.slice(0,8).join(', ')}`);
+        } else { alert(data.error || 'No models found.'); }
+    } catch(e) { alert('Failed: '+e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Auto-Extract Models'; }
+}
+
+async function testLeetCodeAuth() {
+    const session = document.getElementById('inpSession').value.trim();
+    const csrf = document.getElementById('inpCsrf').value.trim();
+    if (!session) { alert('Enter LEETCODE_SESSION first.'); return; }
+    try {
+        const res = await jsonPost('/api/test-auth', { session, csrf });
+        const data = await res.json();
+        if (data.success) { alert('Connected as: ' + data.username); document.getElementById('userAccountInfo').textContent = 'User: ' + data.username; }
+        else alert('Failed: ' + (data.error || 'Invalid session'));
+    } catch(e) { alert('Error: '+e.message); }
+}
+
+// ── Bot Controls ──
+async function startBot() {
+    await syncQuickSettings();
+    try {
+        const res = await apiFetch('/api/bot/start', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'auth_failed') { alert('LeetCode login failed! Update session cookie in Settings.'); toggleSettingsModal(true); }
+        updateBotState();
+    } catch(e) { alert('Error: '+e.message); }
+}
+async function pauseBot() { await apiFetch('/api/bot/pause', { method: 'POST' }); updateBotState(); }
+async function stopBot() { await apiFetch('/api/bot/stop', { method: 'POST' }); updateBotState(); }
+
+async function updateBotState() {
+    try {
+        const res = await apiFetch('/api/bot/state');
+        const state = await res.json();
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.getElementById('statusIndicator');
+        statusText.textContent = state.status;
+        const btnStart = document.getElementById('btnStart');
+        const btnPause = document.getElementById('btnPause');
+        const btnStop = document.getElementById('btnStop');
+
+        if (state.status === 'RUNNING') {
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+            btnStart.classList.add('hidden'); btnPause.classList.remove('hidden'); btnStop.classList.remove('hidden');
+        } else if (state.status === 'PAUSED') {
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+            btnStart.classList.remove('hidden'); btnStart.querySelector('span').textContent = 'Resume';
+            btnPause.classList.add('hidden'); btnStop.classList.remove('hidden');
+        } else {
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-gray-500';
+            btnStart.classList.remove('hidden'); btnStart.querySelector('span').textContent = 'Start Auto-Pilot';
+            btnPause.classList.add('hidden'); btnStop.classList.add('hidden');
+        }
+
+        document.getElementById('statSolved').textContent = state.solved_count;
+        document.getElementById('statTarget').textContent = state.target_count > 0 ? `/ ${state.target_count}` : ' (Infinite)';
+        document.getElementById('statFailed').textContent = state.failed_count;
+        const total = state.solved_count + state.failed_count;
+        document.getElementById('statRate').textContent = (total > 0 ? Math.round((state.solved_count / total) * 100) : 100) + '%';
+        const sec = state.uptime_seconds || 0;
+        document.getElementById('statUptime').textContent = `${String(Math.floor(sec/3600)).padStart(2,'0')}:${String(Math.floor((sec%3600)/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+
+        const currProb = state.current_problem;
+        const pTitle = document.getElementById('currentProblemTitle');
+        const pStep = document.getElementById('currentProblemStep');
+        const pBadge = document.getElementById('currentDiffBadge');
+        const spinner = document.getElementById('currentSpinner');
+        if (currProb) {
+            spinner.classList.remove('hidden');
+            pTitle.textContent = `#${currProb.id} - ${currProb.title}`;
+            pStep.textContent = `Step: ${currProb.step.replace('_',' ').toUpperCase()}...`;
+            pBadge.classList.remove('hidden'); pBadge.textContent = currProb.difficulty;
+            pBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold ' + (currProb.difficulty==='Easy'?'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20':currProb.difficulty==='Medium'?'bg-amber-500/10 text-amber-400 border border-amber-500/20':'bg-rose-500/10 text-rose-400 border border-rose-500/20');
+        } else {
+            spinner.classList.add('hidden'); pBadge.classList.add('hidden');
+            if (state.status === 'RUNNING') { pTitle.textContent = 'Cooldown...'; pStep.textContent = `${state.delay_seconds}s delay`; }
+            else { pTitle.textContent = 'Ready'; pStep.textContent = 'Click Start Auto-Pilot.'; }
+        }
+
+        renderLogs(state.recent_logs || []);
+        renderHistory(state.history || []);
+    } catch(e) { console.error('updateBotState', e); }
+}
+
+function renderLogs(logs) {
+    const c = document.getElementById('logContainer');
+    if (!logs.length) return;
+    c.innerHTML = logs.map(l => {
+        let cl = 'text-gray-400';
+        if (l.level==='success') cl='text-emerald-400 font-semibold'; else if (l.level==='warning') cl='text-amber-400'; else if (l.level==='error') cl='text-rose-400 font-bold';
+        return `<div class="${cl}"><span class="text-gray-600">[${l.timestamp}]</span> ${l.message}</div>`;
+    }).join('');
+    c.scrollTop = c.scrollHeight;
+}
+
+function renderHistory(history) {
+    currentHistoryData = history || [];
+    const tbody = document.getElementById('historyTableBody');
+    document.getElementById('historyCount').textContent = history.length + ' Submissions';
+    if (!history.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-500">No submissions yet.</td></tr>'; return; }
+    tbody.innerHTML = history.slice().reverse().map((h, idx) => {
+        const realIdx = history.length - 1 - idx;
+        const isAc = h.status === 'Accepted';
+        const badge = isAc ? '<span class="px-2 py-0.5 rounded text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 font-semibold">AC</span>' : `<span class="px-2 py-0.5 rounded text-rose-400 bg-rose-500/10 border border-rose-500/20">${h.status}</span>`;
+        return `<tr class="hover:bg-gray-800/30"><td class="py-2 font-mono text-gray-400">#${h.id}</td><td class="py-2 font-medium text-gray-200">${h.title}</td><td class="py-2">${badge}</td><td class="py-2 font-mono text-cyan-400">${h.language||'-'}</td><td class="py-2 text-gray-400 font-mono text-[11px]">${h.provider||'-'}</td><td class="py-2 text-gray-400 font-mono text-[11px]">${h.runtime||'-'} / ${h.memory||'-'}</td><td class="py-2 text-right"><button onclick="viewSolutionCode(${realIdx})" class="px-2.5 py-1 text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-md border border-gray-700">View</button></td></tr>`;
+    }).join('');
+}
+
+function viewSolutionCode(idx) {
+    const item = currentHistoryData[idx]; if (!item) return;
+    document.getElementById('codeModalTitle').textContent = `#${item.id} - ${item.title}`;
+    document.getElementById('codeModalMeta').textContent = `Lang: ${item.language||'-'} | ${item.status} | ${item.provider||'AI'}`;
+    document.getElementById('codeModalContent').textContent = item.code || '// Code not stored';
+    toggleCodeModal(true);
+}
+function toggleCodeModal(show) { const m = document.getElementById('codeModal'); show ? (m.classList.remove('hidden'), lucide.createIcons()) : m.classList.add('hidden'); }
+function copyModalCode() { navigator.clipboard.writeText(document.getElementById('codeModalContent').textContent); alert('Copied!'); }
+function clearLogsUI() { document.getElementById('logContainer').innerHTML = '<div class="text-gray-500">[System] Cleared.</div>'; }
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', () => { checkSession(); });
+</script>
+</body>
+</html>

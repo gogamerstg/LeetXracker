@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: leetxracker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: LEETCODE_SESSION
+        sync: false
+      - key: CSRF_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: FIREBASE_AUTH_SECRET
+        sync: false

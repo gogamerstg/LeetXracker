@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Local Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Sensitive User & Database Data
+settings.json
+users.json
+sessions.json
+audit_logs.json
+history.json
+user_data/
+
+# OS / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
