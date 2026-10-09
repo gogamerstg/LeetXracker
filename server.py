@@ -42,7 +42,14 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def serve_index():
     index_file = STATIC_DIR / "index.html"
     with open(index_file, "r", encoding="utf-8") as f:
-        return f.read()
+        return HTMLResponse(
+            content=f.read(),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
 # ================= AUTH ENDPOINTS =================
 class LoginPayload(BaseModel):

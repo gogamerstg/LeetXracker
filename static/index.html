@@ -392,10 +392,14 @@ async function apiFetch(url, opts = {}) {
 
 async function safeJson(res) {
     try {
-        return await res.json();
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            return { success: false, error: text || `HTTP ${res.status}: ${res.statusText}` };
+        }
     } catch(e) {
-        const text = await res.text().catch(() => '');
-        return { success: false, error: text || 'Server returned non-JSON response' };
+        return { success: false, error: e.message || 'Failed to read response' };
     }
 }
 
@@ -598,6 +602,16 @@ async function adminDeleteUser(email) {
 }
 
 // ── Settings ──
+function getVal(id, fallback = '') {
+    const el = document.getElementById(id);
+    return el ? (el.value !== undefined ? el.value.trim() : fallback) : fallback;
+}
+
+function getChecked(id, fallback = true) {
+    const el = document.getElementById(id);
+    return el ? el.checked : fallback;
+}
+
 function toggleSettingsModal(show) {
     const m = document.getElementById('settingsModal');
     if (show) { fetchSettings(); m.classList.remove('hidden'); lucide.createIcons(); }
@@ -609,34 +623,37 @@ async function fetchSettings() {
         const res = await apiFetch('/api/settings');
         const data = await safeJson(res);
         if (!data || data.success === false) return;
-        document.getElementById('inpSession').value = data.leetcode_session || '';
-        document.getElementById('inpCsrf').value = data.csrf_token || '';
-        document.getElementById('inpOmniBaseUrl').value = data.omniroute_base_url || 'http://localhost:20128/v1';
-        document.getElementById('inpOmniApiKey').value = data.omniroute_api_key || '';
-        document.getElementById('inpOmniModel').value = data.omniroute_model || 'auto/best-coding';
-        document.getElementById('inpGroq').value = data.groq_api_key || '';
-        document.getElementById('inpGemini').value = data.gemini_api_key || '';
-        document.getElementById('inpOpenRouter').value = data.openrouter_api_key || '';
-        document.getElementById('inpGroqModel').value = data.groq_model || 'openai/gpt-oss-120b';
-        document.getElementById('inpGeminiModel').value = data.gemini_model || 'gemini-flash-latest';
-        document.getElementById('inpOpenRouterModel').value = data.openrouter_model || 'nvidia/nemotron-3.5-lightning:free';
-        document.getElementById('quickTarget').value = data.target_count ?? 50;
-        document.getElementById('quickDelay').value = data.delay_seconds !== undefined ? data.delay_seconds : 1;
-        document.getElementById('quickDifficulty').value = data.difficulty || 'ALL';
-        document.getElementById('quickLanguage').value = data.language || 'MIX';
-        document.getElementById('chkSkipSolved').checked = data.skip_already_solved !== false;
-        document.getElementById('chkSkipPaid').checked = data.skip_paid_only !== false;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+        const setChk = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.checked = Boolean(val); };
+
+        setVal('inpSession', data.leetcode_session || '');
+        setVal('inpCsrf', data.csrf_token || '');
+        setVal('inpOmniBaseUrl', data.omniroute_base_url || 'http://localhost:20128/v1');
+        setVal('inpOmniApiKey', data.omniroute_api_key || '');
+        setVal('inpOmniModel', data.omniroute_model || 'auto/best-coding');
+        setVal('inpGroq', data.groq_api_key || '');
+        setVal('inpGemini', data.gemini_api_key || '');
+        setVal('inpOpenRouter', data.openrouter_api_key || '');
+        setVal('inpGroqModel', data.groq_model || 'openai/gpt-oss-120b');
+        setVal('inpGeminiModel', data.gemini_model || 'gemini-flash-latest');
+        setVal('inpOpenRouterModel', data.openrouter_model || 'nvidia/nemotron-3.5-lightning:free');
+        setVal('quickTarget', data.target_count ?? 50);
+        setVal('quickDelay', data.delay_seconds !== undefined ? data.delay_seconds : 1);
+        setVal('quickDifficulty', data.difficulty || 'ALL');
+        setVal('quickLanguage', data.language || 'MIX');
+        setChk('chkSkipSolved', data.skip_already_solved !== false);
+        setChk('chkSkipPaid', data.skip_paid_only !== false);
     } catch(e) { console.error('fetchSettings', e); }
 }
 
 async function syncQuickSettings() {
     const payload = {
-        target_count: parseInt(document.getElementById('quickTarget').value) || 0,
-        delay_seconds: parseInt(document.getElementById('quickDelay').value) || 1,
-        difficulty: document.getElementById('quickDifficulty').value,
-        language: document.getElementById('quickLanguage').value,
-        skip_already_solved: document.getElementById('chkSkipSolved').checked,
-        skip_paid_only: document.getElementById('chkSkipPaid').checked
+        target_count: parseInt(getVal('quickTarget', '0')) || 0,
+        delay_seconds: parseInt(getVal('quickDelay', '1')) || 1,
+        difficulty: getVal('quickDifficulty', 'ALL'),
+        language: getVal('quickLanguage', 'MIX'),
+        skip_already_solved: getChecked('chkSkipSolved', true),
+        skip_paid_only: getChecked('chkSkipPaid', true)
     };
     try { await jsonPost('/api/settings', payload); } catch(e) {}
 }
@@ -649,26 +666,26 @@ async function saveSettings() {
         btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 inline animate-spin mr-1"></i> Saving...`;
         lucide.createIcons();
     }
-    const payload = {
-        leetcode_session: document.getElementById('inpSession').value.trim(),
-        csrf_token: document.getElementById('inpCsrf').value.trim(),
-        omniroute_base_url: document.getElementById('inpOmniBaseUrl').value.trim(),
-        omniroute_api_key: document.getElementById('inpOmniApiKey').value.trim(),
-        omniroute_model: document.getElementById('inpOmniModel').value.trim(),
-        groq_api_key: document.getElementById('inpGroq').value.trim(),
-        gemini_api_key: document.getElementById('inpGemini').value.trim(),
-        openrouter_api_key: document.getElementById('inpOpenRouter').value.trim(),
-        groq_model: document.getElementById('inpGroqModel').value.trim() || 'openai/gpt-oss-120b',
-        gemini_model: document.getElementById('inpGeminiModel').value.trim() || 'gemini-flash-latest',
-        openrouter_model: document.getElementById('inpOpenRouterModel').value.trim() || 'nvidia/nemotron-3.5-lightning:free',
-        target_count: parseInt(document.getElementById('quickTarget').value) || 0,
-        delay_seconds: parseInt(document.getElementById('quickDelay').value) || 1,
-        difficulty: document.getElementById('quickDifficulty').value,
-        language: document.getElementById('quickLanguage').value,
-        skip_already_solved: document.getElementById('chkSkipSolved').checked,
-        skip_paid_only: document.getElementById('chkSkipPaid').checked
-    };
     try {
+        const payload = {
+            leetcode_session: getVal('inpSession'),
+            csrf_token: getVal('inpCsrf'),
+            omniroute_base_url: getVal('inpOmniBaseUrl', 'http://localhost:20128/v1'),
+            omniroute_api_key: getVal('inpOmniApiKey'),
+            omniroute_model: getVal('inpOmniModel', 'auto/best-coding'),
+            groq_api_key: getVal('inpGroq'),
+            gemini_api_key: getVal('inpGemini'),
+            openrouter_api_key: getVal('inpOpenRouter'),
+            groq_model: getVal('inpGroqModel', 'openai/gpt-oss-120b'),
+            gemini_model: getVal('inpGeminiModel', 'gemini-flash-latest'),
+            openrouter_model: getVal('inpOpenRouterModel', 'nvidia/nemotron-3.5-lightning:free'),
+            target_count: parseInt(getVal('quickTarget', '0')) || 0,
+            delay_seconds: parseInt(getVal('quickDelay', '1')) || 1,
+            difficulty: getVal('quickDifficulty', 'ALL'),
+            language: getVal('quickLanguage', 'MIX'),
+            skip_already_solved: getChecked('chkSkipSolved', true),
+            skip_paid_only: getChecked('chkSkipPaid', true)
+        };
         const res = await jsonPost('/api/settings', payload);
         const data = await safeJson(res);
         if (res.ok && data.success !== false) {
