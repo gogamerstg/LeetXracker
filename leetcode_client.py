@@ -21,19 +21,21 @@ class LeetCodeClient:
     async def refresh_csrf(self) -> bool:
         """Fetch a fresh CSRF token from the valid session cookie.
 
-        LeetCode rotates csrftoken and the submit endpoint rejects stale ones
-        with HTTP 403 even when the session is still valid for GraphQL reads.
+        LeetCode rotates csrftoken after every submit and the submit endpoint
+        rejects stale ones with HTTP 403 even when the session is still valid
+        for GraphQL reads. Read the token from the client cookie jar (not
+        resp.cookies) so it survives leetcode.com's redirect.
         """
         if not self.session_token:
             return False
         try:
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                resp = await client.get(
+                await client.get(
                     f"{self.BASE_URL}/",
                     headers={"User-Agent": self.headers["User-Agent"],
                              "Cookie": f"LEETCODE_SESSION={self.session_token}"}
                 )
-                fresh = resp.cookies.get("csrftoken")
+                fresh = client.cookies.get("csrftoken")
                 if fresh:
                     self.csrf_token = fresh
                     self.headers = self._build_headers()
@@ -257,10 +259,16 @@ class LeetCodeClient:
         code: str
     ) -> Dict[str, Any]:
         """Submit code solution to LeetCode."""
+        # LeetCode rotates csrftoken after every submit, so get a fresh one first
+        await self.refresh_csrf()
+
         submit_url = f"{self.BASE_URL}/problems/{title_slug}/submit/"
-        headers = self.headers.copy()
-        headers["Referer"] = f"{self.BASE_URL}/problems/{title_slug}/"
-        headers["Content-Type"] = "application/json"
+
+        def _headers():
+            h = self.headers.copy()
+            h["Referer"] = f"{self.BASE_URL}/problems/{title_slug}/"
+            h["Content-Type"] = "application/json"
+            return h
 
         payload = {
             "lang": lang_slug,
@@ -270,18 +278,10 @@ class LeetCodeClient:
 
         async with httpx.AsyncClient(timeout=25.0) as client:
             try:
-                resp = await client.post(
-                    submit_url,
-                    json=payload,
-                    headers=headers
-                )
+                resp = await client.post(submit_url, json=payload, headers=_headers())
                 # Stale CSRF -> refresh once from session and retry
-                if resp.status_code == 403:
-                    if await self.refresh_csrf():
-                        headers = self.headers.copy()
-                        headers["Referer"] = f"{self.BASE_URL}/problems/{title_slug}/"
-                        headers["Content-Type"] = "application/json"
-                        resp = await client.post(submit_url, json=payload, headers=headers)
+                if resp.status_code == 403 and await self.refresh_csrf():
+                    resp = await client.post(submit_url, json=payload, headers=_headers())
 
                 if resp.status_code == 200:
                     return resp.json()
