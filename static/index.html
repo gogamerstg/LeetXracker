@@ -100,7 +100,7 @@
             <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
             <span id="statusText">IDLE</span>
         </div>
-        <button id="btnAdminNav" onclick="toggleAdminModal(true)" class="hidden p-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/50 border border-purple-500/30 text-purple-300 transition flex items-center space-x-1.5 text-xs font-medium">
+        <button id="btnAdminNav" onclick="toggleAdminModal(true)" style="display: none !important;" class="hidden p-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/50 border border-purple-500/30 text-purple-300 transition items-center space-x-1.5 text-xs font-medium">
             <i data-lucide="shield" class="w-4 h-4"></i><span class="hidden sm:inline">Admin</span>
         </button>
         <button onclick="toggleSettingsModal(true)" class="p-2 rounded-xl bg-gray-800/80 hover:bg-gray-700 border border-gray-700 text-gray-300 transition flex items-center space-x-1.5 text-xs font-medium">
@@ -510,6 +510,11 @@ function showLogin() {
     document.getElementById('loginOverlay').classList.remove('hidden');
     document.getElementById('mainHeader').classList.add('hidden');
     document.getElementById('mainDashboard').classList.add('hidden');
+    const adminBtn = document.getElementById('btnAdminNav');
+    if (adminBtn) {
+        adminBtn.classList.add('hidden');
+        adminBtn.style.setProperty('display', 'none', 'important');
+    }
     requestGeo();
     lucide.createIcons();
 }
@@ -518,15 +523,19 @@ function showDashboard() {
     document.getElementById('loginOverlay').classList.add('hidden');
     document.getElementById('mainHeader').classList.remove('hidden');
     document.getElementById('mainDashboard').classList.remove('hidden');
-    if (currentUserInfo) {
-        document.getElementById('loggedInUserLabel').textContent = currentUserInfo.email.split('@')[0];
-        if (currentUserInfo.email === 'surajdas@surajdas.com') {
-            document.getElementById('btnAdminNav').classList.remove('hidden');
-            document.getElementById('btnAdminNav').style.display = 'flex';
+    const isSuperAdmin = currentUserInfo && (currentUserInfo.email || '').trim().toLowerCase() === 'surajdas@surajdas.com';
+    const adminBtn = document.getElementById('btnAdminNav');
+    if (adminBtn) {
+        if (isSuperAdmin) {
+            adminBtn.classList.remove('hidden');
+            adminBtn.style.setProperty('display', 'flex', 'important');
         } else {
-            document.getElementById('btnAdminNav').classList.add('hidden');
-            document.getElementById('btnAdminNav').style.display = 'none';
+            adminBtn.classList.add('hidden');
+            adminBtn.style.setProperty('display', 'none', 'important');
         }
+    }
+    if (currentUserInfo) {
+        document.getElementById('loggedInUserLabel').textContent = (currentUserInfo.email || '').split('@')[0];
     }
     lucide.createIcons();
     fetchSettings();
@@ -536,6 +545,9 @@ function showDashboard() {
 
 // ── Admin Panel ──
 function toggleAdminModal(show) {
+    if (show && (!currentUserInfo || (currentUserInfo.email || '').trim().toLowerCase() !== 'surajdas@surajdas.com')) {
+        return;
+    }
     const m = document.getElementById('adminModal');
     if (show) { m.classList.remove('hidden'); loadAdminData(); lucide.createIcons(); }
     else m.classList.add('hidden');

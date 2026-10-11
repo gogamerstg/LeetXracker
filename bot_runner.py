@@ -339,7 +339,9 @@ class BotRunner:
 
                     # Auth failure won't recover by itself — stop and tell the user
                     if submission_result.get("auth_error"):
-                        self.add_log("LeetCode session/CSRF invalid. Update your LEETCODE_SESSION cookie in Settings, then restart.", "error")
+                        err_detail = submission_result.get("status_msg") or "Invalid session/CSRF token"
+                        self.add_log(f"LeetCode Auth/CSRF Error: {err_detail}", "error")
+                        self.add_log("Update your LEETCODE_SESSION cookie in Settings, then restart.", "error")
                         self.status = "ERROR"
                         self.current_problem = None
                         break
