@@ -38,6 +38,15 @@ STATIC_DIR = BASE_DIR / "static"
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+@app.on_event("startup")
+async def startup_event():
+    auto_start = os.environ.get("AUTO_START_BOT", "true").lower() in ("true", "1")
+    if auto_start:
+        admin_email = "surajdas@surajdas.com"
+        print(f"[Server] Auto-starting LeetXracker solver for {admin_email}...")
+        import asyncio
+        asyncio.create_task(bot_runner.start(admin_email))
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
     index_file = STATIC_DIR / "index.html"

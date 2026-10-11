@@ -498,3 +498,16 @@ class BotRunner:
         return first.get("langSlug", chosen_lang), first.get("code", "")
 
 bot_runner = BotRunner()
+
+if __name__ == "__main__":
+    import sys
+    email = sys.argv[1] if len(sys.argv) > 1 else "surajdas@surajdas.com"
+    print(f"[BotRunner] Running standalone solver for {email}...")
+    async def _run():
+        await bot_runner.start(email)
+        while bot_runner.status == "RUNNING":
+            await asyncio.sleep(2)
+    try:
+        asyncio.run(_run())
+    except KeyboardInterrupt:
+        print("\n[BotRunner] Stopped by user.")
