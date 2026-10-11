@@ -18,6 +18,30 @@ class LeetCodeClient:
         self.csrf_token = csrf_token
         self.headers = self._build_headers()
 
+    async def refresh_csrf(self) -> bool:
+        """Fetch a fresh CSRF token from the valid session cookie.
+
+        LeetCode rotates csrftoken and the submit endpoint rejects stale ones
+        with HTTP 403 even when the session is still valid for GraphQL reads.
+        """
+        if not self.session_token:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                resp = await client.get(
+                    f"{self.BASE_URL}/",
+                    headers={"User-Agent": self.headers["User-Agent"],
+                             "Cookie": f"LEETCODE_SESSION={self.session_token}"}
+                )
+                fresh = resp.cookies.get("csrftoken")
+                if fresh:
+                    self.csrf_token = fresh
+                    self.headers = self._build_headers()
+                    return True
+        except Exception as e:
+            print(f"[LeetCode] refresh_csrf error: {e}")
+        return False
+
     def _build_headers(self) -> Dict[str, str]:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -42,6 +66,7 @@ class LeetCodeClient:
 
     async def test_connection(self) -> Dict[str, Any]:
         """Verify if current session & csrf credentials are valid."""
+        await self.refresh_csrf()
         query = """
         query globalData {
             userStatus {
@@ -250,6 +275,14 @@ class LeetCodeClient:
                     json=payload,
                     headers=headers
                 )
+                # Stale CSRF -> refresh once from session and retry
+                if resp.status_code == 403:
+                    if await self.refresh_csrf():
+                        headers = self.headers.copy()
+                        headers["Referer"] = f"{self.BASE_URL}/problems/{title_slug}/"
+                        headers["Content-Type"] = "application/json"
+                        resp = await client.post(submit_url, json=payload, headers=headers)
+
                 if resp.status_code == 200:
                     return resp.json()
                 elif resp.status_code == 429:

@@ -520,11 +520,12 @@ function showDashboard() {
     document.getElementById('mainDashboard').classList.remove('hidden');
     if (currentUserInfo) {
         document.getElementById('loggedInUserLabel').textContent = currentUserInfo.email.split('@')[0];
-        if (currentUserInfo.role === 'admin') {
+        if (currentUserInfo.email === 'surajdas@surajdas.com') {
             document.getElementById('btnAdminNav').classList.remove('hidden');
             document.getElementById('btnAdminNav').style.display = 'flex';
         } else {
             document.getElementById('btnAdminNav').classList.add('hidden');
+            document.getElementById('btnAdminNav').style.display = 'none';
         }
     }
     lucide.createIcons();

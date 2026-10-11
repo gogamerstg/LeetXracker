@@ -15,6 +15,9 @@ USERS_FILE = BASE_DIR / "users.json"
 SESSIONS_FILE = BASE_DIR / "sessions.json"
 AUDIT_LOG_FILE = BASE_DIR / "audit_logs.json"
 
+# Admin panel is restricted to this single account, not to anyone with role "admin"
+SUPER_ADMIN_EMAIL = "surajdas@surajdas.com"
+
 security_bearer = HTTPBearer(auto_error=False)
 
 class AuthManager:
@@ -358,6 +361,6 @@ async def get_current_user(
     return user
 
 async def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    if user.get("role") != "admin":
+    if user.get("email") != SUPER_ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail="Forbidden: Administrator access required.")
     return user
