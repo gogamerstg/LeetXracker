@@ -67,6 +67,9 @@ class ConfigManager:
             except Exception as e:
                 print(f"[Config] Error loading settings: {e}")
         else:
+            cloud_data = firebase_sync.get_data_sync("settings/surajdas_surajdas_com")
+            if cloud_data and isinstance(cloud_data, dict):
+                self.settings.update(cloud_data)
             self.save()
         return self.settings
 
@@ -93,6 +96,17 @@ class ConfigManager:
                     user_cfg.update(json.load(f))
             except Exception as e:
                 print(f"[Config] Error loading user settings for {email}: {e}")
+        else:
+            safe_email = email.replace(".", "_")
+            cloud_data = firebase_sync.get_data_sync(f"settings/{safe_email}")
+            if cloud_data and isinstance(cloud_data, dict):
+                user_cfg.update(cloud_data)
+                try:
+                    user_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(user_file, "w", encoding="utf-8") as f:
+                        json.dump(user_cfg, f, indent=2)
+                except Exception:
+                    pass
         return user_cfg
 
     def save_user_settings(self, email: str, updates: Dict[str, Any]) -> Dict[str, Any]:

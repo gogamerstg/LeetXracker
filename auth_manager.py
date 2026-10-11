@@ -46,6 +46,19 @@ class AuthManager:
                     self.users = json.load(f)
             except Exception as e:
                 print(f"[Auth] Error loading users: {e}")
+        else:
+            cloud_users = firebase_sync.get_data_sync("users")
+            if cloud_users and isinstance(cloud_users, dict):
+                for k, u in cloud_users.items():
+                    email = u.get("email") if isinstance(u, dict) else None
+                    if email:
+                        self.users[email] = u
+                if self.users:
+                    try:
+                        with open(USERS_FILE, "w", encoding="utf-8") as f:
+                            json.dump(self.users, f, indent=2)
+                    except Exception:
+                        pass
 
         if SESSIONS_FILE.exists():
             try:
