@@ -1,26 +1,23 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-*.pyc
-
-# Local Environment & Secrets
-.env
-.env.local
-.env.*.local
-
-# Sensitive User & Database Data
+# Credentials & secrets — NEVER push these
 settings.json
 users.json
 sessions.json
 audit_logs.json
-history.json
 user_data/
+history.json
+*.log
 
-# OS / IDE
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+.python-version
+
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
+*.DS_Store

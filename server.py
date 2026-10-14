@@ -15,6 +15,7 @@ from bot_runner import bot_runner
 from leetcode_client import LeetCodeClient
 from ai_solver import MultiAISolver
 from auth_manager import auth_mgr, get_current_user, require_admin
+from account_manager import account_mgr
 
 app = FastAPI(title="LeetXracker - Multi-AI Auto Engine")
 
@@ -311,6 +312,120 @@ async def resume_bot(current_user: dict = Depends(get_current_user)):
 @app.post("/api/bot/stop")
 async def stop_bot(current_user: dict = Depends(get_current_user)):
     return await bot_runner.stop()
+
+@app.post("/api/bot/daily")
+async def run_daily(current_user: dict = Depends(get_current_user)):
+    """Trigger daily mode: solve 2-5 random problems then auto-stop."""
+    return await bot_runner.start(user_email=current_user["email"], daily_mode=True)
+
+# ── Multi-Account LeetCode Management ─────────────────────────────────────────
+
+@app.get("/api/accounts")
+async def list_accounts(current_user: dict = Depends(get_current_user)):
+    """List all LeetCode accounts for the current user."""
+    return {"accounts": account_mgr.get_accounts(current_user["email"])}
+
+@app.post("/api/accounts")
+async def add_account(
+    body: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Add a LeetCode account (session cookie + CSRF token)."""
+    username = body.get("username", "").strip()
+    session = body.get("session", "").strip()
+    csrf_token = body.get("csrf_token", "").strip()
+    if not session or not csrf_token:
+        return {"success": False, "error": "Session and CSRF token are required."}
+    result = account_mgr.add_account(
+        web_email=current_user["email"],
+        username=username,
+        session=session,
+        csrf_token=csrf_token
+    )
+    # Auto-set first account as active
+    if result.get("success") and len(account_mgr.get_accounts(current_user["email"])) == 1:
+        account_mgr.set_active_account(current_user["email"], result["account"]["id"])
+    return result
+
+@app.put("/api/accounts/{account_id}")
+async def update_account(
+    account_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update account settings (username, active status, daily_limit, accuracy_mode)."""
+    return account_mgr.update_account(current_user["email"], account_id, body)
+
+@app.post("/api/accounts/{account_id}/activate")
+async def activate_account(
+    account_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Set this account as the active one for auto-solving."""
+    return account_mgr.set_active_account(current_user["email"], account_id)
+
+@app.delete("/api/accounts/{account_id}")
+async def delete_account(
+    account_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Remove a LeetCode account."""
+    return account_mgr.remove_account(current_user["email"], account_id)
+
+# ── Cron / GitHub Actions Trigger (secret-key protected) ──────────────────────
+
+@app.post("/api/cron/daily")
+async def cron_daily(request: Request):
+    """
+    Secret-key protected endpoint for GitHub Actions cron.
+    Set LEETXRACKER_CRON_SECRET env var on Render and add it to GitHub Secrets.
+    """
+    cron_secret = os.environ.get("LEETXRACKER_CRON_SECRET", "")
+
+    # Verify secret from header
+    key_header = request.headers.get("X-Cron-Secret", "")
+    body = await request.json()
+    key_body = body.get("key", "")
+
+    if not cron_secret:
+        return JSONResponse({"error": "Cron endpoint disabled — no secret configured."}, status_code=503)
+    if key_header != cron_secret and key_body != cron_secret:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Trigger daily mode for super admin
+    result = await bot_runner.start(user_email="surajdas@surajdas.com", daily_mode=True)
+    return {"status": "ok", "trigger": "daily", "result": result}
+
+@app.get("/api/accounts/active")
+async def get_active_account(current_user: dict = Depends(get_current_user)):
+    """Get the currently active LeetCode account."""
+    acc = account_mgr.get_active_account(current_user["email"])
+    if acc:
+        return {"account": acc.to_dict()}
+    return {"account": None}
+
+# ── Admin: All Users' Account Summary ────────────────────────────────────────
+
+@app.get("/api/admin/accounts", dependencies=[Depends(require_admin)])
+async def admin_list_all_accounts():
+    """Super admin: list all accounts across all users."""
+    from auth_manager import auth_mgr as _am
+    users = _am.list_users()
+    summary = []
+    for user in users:
+        email = user["email"]
+        accounts = account_mgr.get_accounts(email)
+        active = account_mgr.get_active_account(email)
+        summary.append({
+            "email": email,
+            "name": user["name"],
+            "total_accounts": len(accounts),
+            "active_account": active.username if active else None,
+            "last_login": user.get("last_login"),
+            "is_active": user.get("is_active", True)
+        })
+    return {"users": summary}
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

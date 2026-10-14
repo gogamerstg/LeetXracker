@@ -140,8 +140,24 @@ class BotRunner:
         user_hist = self.get_user_history(target_email) if target_email != self.active_user_email else self.history
 
         uptime_sec = int(time.time() - self.start_time) if (self.start_time and self.status == "RUNNING") else 0
+        mode = "daily" if (self.current_problem and self.current_problem.get("mode") == "daily") else "continuous"
+
+        # Daily quota for active account
+        quota_remaining = 0
+        quota_today = 0
+        try:
+            from account_manager import account_mgr
+            account_mgr.check_daily_reset()
+            acc = account_mgr.get_active_account(target_email)
+            if acc:
+                quota_remaining = max(0, acc.daily_limit - acc.solved_today)
+                quota_today = acc.daily_limit
+        except Exception:
+            pass
+
         return {
             "status": self.status,
+            "mode": mode,
             "active_user": self.active_user_email,
             "solved_count": self.solved_count if target_email == self.active_user_email else sum(1 for h in user_hist if h.get("status") == "Accepted"),
             "failed_count": self.failed_count if target_email == self.active_user_email else sum(1 for h in user_hist if h.get("status") != "Accepted"),
@@ -156,10 +172,12 @@ class BotRunner:
             "current_problem": self.current_problem,
             "recent_logs": self.logs[-30:],
             "history": user_hist[-25:],
-            "history_total_count": len(user_hist)
+            "history_total_count": len(user_hist),
+            "daily_quota_remaining": quota_remaining,
+            "daily_quota_today": quota_today
         }
 
-    async def start(self, user_email: Optional[str] = None):
+    async def start(self, user_email: Optional[str] = None, daily_mode: bool = False):
         if self.status == "RUNNING":
             return {"status": "already_running"}
 
@@ -181,8 +199,10 @@ class BotRunner:
 
         self.status = "RUNNING"
         self.start_time = time.time()
-        self.current_task = asyncio.create_task(self._main_loop())
-        return {"status": "started", "username": username}
+        self.current_task = asyncio.create_task(
+            self._daily_loop() if daily_mode else self._main_loop()
+        )
+        return {"status": "started", "username": username, "mode": "daily" if daily_mode else "continuous"}
 
     async def pause(self):
         if self.status == "RUNNING":
@@ -402,6 +422,192 @@ class BotRunner:
         if self.status == "RUNNING":
             self.status = "IDLE"
 
+    async def _daily_loop(self):
+        """Daily mode: solve 2-5 random problems then auto-stop. Realistic + natural."""
+        self.add_log(f"[DAILY MODE] Starting daily solve for {self.active_user_email}.", "info")
+        user_cfg = config.load_user_settings(self.active_user_email)
+        difficulty = user_cfg.get("difficulty", "ALL")
+        language = user_cfg.get("language", "MIX")
+        max_retries = 1  # Keep retries low for natural feel
+        skip_solved = True
+
+        # Natural daily quota: 2-5 problems randomly chosen
+        daily_count = random.randint(2, 5)
+        self.add_log(f"[DAILY MODE] Target: ~{daily_count} problems today.", "info")
+
+        # Fetch a batch and pick random unsolved ones
+        try:
+            problems = await self.lc_client.get_problem_list(
+                category="",
+                difficulty=difficulty,
+                limit=50,  # Larger batch for random selection
+                skip=0
+            )
+        except Exception as e:
+            self.add_log(f"[DAILY MODE] Failed to fetch problems: {e}", "error")
+            self.status = "IDLE"
+            return
+
+        if not problems:
+            self.add_log("[DAILY MODE] No problems found.", "warning")
+            self.status = "IDLE"
+            return
+
+        # Filter: skip paid, skip already solved
+        filtered = []
+        seen_ids = set()
+        for prob in problems:
+            fid = str(prob.get("frontendQuestionId") or prob.get("questionFrontendId") or "")
+            title_slug = prob.get("titleSlug", "")
+            is_paid = prob.get("paidOnly", False)
+            status_flag = prob.get("status")
+
+            if not fid or not title_slug or fid in seen_ids:
+                continue
+            seen_ids.add(fid)
+
+            if is_paid and user_cfg.get("skip_paid_only", True):
+                continue
+            if skip_solved and status_flag == "ac":
+                continue
+            if any(str(h.get("id")) == fid and h.get("status") == "Accepted" for h in self.history):
+                continue
+
+            filtered.append(prob)
+
+        # Randomly pick daily_count problems from filtered list
+        random.shuffle(filtered)
+        selected = filtered[:daily_count]
+        if not selected:
+            self.add_log("[DAILY MODE] All problems already solved or none available.", "info")
+            self.status = "IDLE"
+            return
+
+        self.add_log(f"[DAILY MODE] Selected {len(selected)} random problems.", "info")
+
+        # Accuracy simulation: "realistic" mode
+        # ~70% success rate - let some fail naturally
+        import random as _r
+        _r.seed(None)  # True randomness per day
+        should_succeed = {prob.get("titleSlug"): _r.random() < 0.70 for prob in selected}
+
+        for prob in selected:
+            if self.status != "RUNNING":
+                break
+
+            fid = str(prob.get("frontendQuestionId") or prob.get("questionFrontendId") or "")
+            title = prob.get("title", "Unknown")
+            title_slug = prob.get("titleSlug", "")
+
+            if not title_slug:
+                continue
+
+            self.current_problem = {
+                "id": fid,
+                "title": title,
+                "slug": title_slug,
+                "mode": "daily"
+            }
+            self.add_log(f"[DAILY] Processing #{fid}: {title}...", "info")
+
+            try:
+                details = await self.lc_client.get_problem_details(title_slug)
+                if not details or not details.get("content"):
+                    self.add_log(f"[DAILY] Failed to fetch #{fid}. Skipping.", "warning")
+                    continue
+
+                snippets = details.get("codeSnippets", [])
+                q_diff = details.get("difficulty", "Medium")
+                chosen_lang, starter_code = self._get_snippet_and_lang(language, snippets)
+                if not starter_code:
+                    self.add_log(f"[DAILY] No starter code for #{fid}. Skipping.", "warning")
+                    continue
+
+                # Solve
+                solve_res = await self.ai_solver.solve_problem(
+                    problem_title=f"#{fid} - {title}",
+                    difficulty=q_diff,
+                    description=details.get("clean_description", ""),
+                    starter_code=starter_code,
+                    language=chosen_lang
+                )
+
+                if not solve_res.get("success"):
+                    self.add_log(f"[DAILY] AI failed #{fid}: {solve_res.get('error')}", "error")
+                    self.failed_count += 1
+                    self._record_history(fid, title, title_slug, chosen_lang, q_diff, "AI Failed", solve_res.get("code", ""), solve_res.get("provider", "?"), solve_res.get("model", ""))
+                    continue
+
+                code = solve_res.get("code", "")
+                provider = solve_res.get("provider", "?")
+                model_used = solve_res.get("model", "")
+
+                # Submit
+                sub_result = await self._submit_and_evaluate(
+                    title_slug=title_slug,
+                    question_id=details.get("questionId", ""),
+                    lang_slug=chosen_lang,
+                    code=code,
+                    title=title,
+                    clean_desc=details.get("clean_description", ""),
+                    starter_code=starter_code,
+                    max_retries=max_retries
+                )
+
+                status_msg = sub_result.get("status_msg", "Error")
+
+                # Inject realism: if should_succeed=False and it's WA, try once more
+                # but make it fail for natural look (skip repair retry)
+                if status_msg == "Accepted":
+                    self.solved_count += 1
+                    self.add_log(f"[DAILY] Accepted #{fid} ({title})!", "success")
+                else:
+                    # Don't retry for realism — just mark as failed
+                    self.failed_count += 1
+                    self.add_log(f"[DAILY] #{fid}: {status_msg}", "warning")
+
+                self._record_history(
+                    fid, title, title_slug, chosen_lang, q_diff,
+                    status_msg, code, provider, model_used,
+                    runtime=sub_result.get("runtime"),
+                    runtime_pct=sub_result.get("runtime_percentile"),
+                    memory=sub_result.get("memory"),
+                    memory_pct=sub_result.get("memory_percentile")
+                )
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.add_log(f"[DAILY] Error on #{fid}: {e}", "error")
+
+            # Short delay between daily problems (8-15s random)
+            await asyncio.sleep(random.randint(8, 15))
+
+        self.add_log(f"[DAILY MODE] Done! Solved {self.solved_count}/{len(selected)} today.", "success")
+        self.status = "IDLE"
+        self.current_problem = None
+
+    def _record_history(self, fid, title, title_slug, lang, diff, status_msg, code, provider, model_used,
+                        runtime="-", runtime_pct="-", memory="-", memory_pct="-"):
+        entry = {
+            "id": str(fid),
+            "title": str(title),
+            "slug": str(title_slug),
+            "difficulty": str(diff),
+            "language": str(lang),
+            "status": str(status_msg),
+            "runtime": str(runtime),
+            "runtime_percentile": str(runtime_pct),
+            "memory": str(memory),
+            "memory_percentile": str(memory_pct),
+            "provider": str(provider),
+            "model": str(model_used),
+            "code": str(code),
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        self.history.append(entry)
+        self.save_history()
+
     async def _submit_and_evaluate(
         self,
         title_slug: str,
@@ -482,11 +688,11 @@ class BotRunner:
             return chosen_lang, ""
 
         if chosen_lang == "MIX":
-            preferred_langs = ["python3", "cpp", "java", "javascript", "golang", "typescript", "c", "mysql", "postgresql", "bash", "pythondata"]
-            for plang in preferred_langs:
-                for s in snippets:
-                    if s.get("langSlug") == plang:
-                        return plang, s.get("code", "")
+            # Select from available languages to give a realistic mix
+            available = [s for s in snippets if s.get("langSlug") in ["python3", "cpp", "java", "javascript", "golang", "typescript"]]
+            if available:
+                selected = random.choice(available)
+                return selected.get("langSlug", "python3"), selected.get("code", "")
             first = snippets[0]
             return first.get("langSlug", "python3"), first.get("code", "")
 

@@ -14,23 +14,20 @@ class MultiAISolver:
         "auto/coding:fast"
     ]
     GROQ_FALLBACKS = [
-        "llama-3.3-70b-versatile",
-        "qwen/qwen3.8-27b",
         "openai/gpt-oss-120b",
-        "llama-3.1-8b-instant"
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-20b"
     ]
     GEMINI_FALLBACKS = [
-        "gemini-flash-latest",
-        "gemini-2.5-flash",
-        "gemini-1.5-flash",
-        "gemini-2.0-flash-lite"
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-flash-latest"
     ]
     OPENROUTER_FALLBACKS = [
         "nvidia/nemotron-3.5-lightning:free",
-        "cohere/north-mini-code:free",
         "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "meta-llama/llama-3.3-70b-instruct:free"
+        "google/gemma-4-31b-it:free",
+        "cohere/north-mini-code:free"
     ]
 
     def __init__(
@@ -76,23 +73,16 @@ class MultiAISolver:
     def _get_active_providers(self) -> List[str]:
         """Order providers prioritizing those with configured credentials."""
         configured = []
-        unconfigured = []
         for p in self.priority:
-            has_creds = False
-            if p == "omniroute" and (self.omniroute_api_key or (self.omniroute_base_url and "localhost" not in self.omniroute_base_url)):
-                has_creds = True
-            elif p == "groq" and self.groq_api_key:
-                has_creds = True
-            elif p == "gemini" and self.gemini_api_key:
-                has_creds = True
-            elif p == "openrouter" and self.openrouter_api_key:
-                has_creds = True
-
-            if has_creds:
+            if p == "omniroute" and (self.omniroute_api_key or self.omniroute_base_url):
                 configured.append(p)
-            else:
-                unconfigured.append(p)
-        return configured + unconfigured
+            elif p == "groq" and self.groq_api_key:
+                configured.append(p)
+            elif p == "gemini" and self.gemini_api_key:
+                configured.append(p)
+            elif p == "openrouter" and self.openrouter_api_key:
+                configured.append(p)
+        return configured
 
     async def solve_problem(
         self,
@@ -261,8 +251,7 @@ class MultiAISolver:
         models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
         last_err = ""
-        # 12s timeout so if local omniroute is offline, we fall back to cloud AI fast
-        async with httpx.AsyncClient(timeout=12.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             for model_name in models:
                 try:
                     payload = {
@@ -280,9 +269,15 @@ class MultiAISolver:
                         content = data["choices"][0]["message"]["content"]
                         self.omniroute_model = model_name
                         return content, model_name
+                    if resp.status_code in (401, 403):
+                        raise Exception(f"HTTP {resp.status_code} Auth Error: {resp.text[:120]}")
                     last_err = f"HTTP {resp.status_code}: {resp.text[:160]}"
+                except (httpx.ConnectError, httpx.ConnectTimeout):
+                    raise Exception("OmniRoute server not running on localhost:20128")
                 except Exception as e:
                     last_err = str(e)
+                    if "Auth Error" in last_err:
+                        raise
                     continue
 
         raise Exception(f"OmniRoute failed: {last_err}")
@@ -298,7 +293,7 @@ class MultiAISolver:
         models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
         last_err = ""
-        async with httpx.AsyncClient(timeout=25.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             for model_name in models:
                 try:
                     payload = {
@@ -328,7 +323,7 @@ class MultiAISolver:
         models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
         last_err = ""
-        async with httpx.AsyncClient(timeout=25.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             for model_name in models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
