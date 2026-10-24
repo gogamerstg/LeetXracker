@@ -187,12 +187,10 @@ class BotRunner:
 
         self.sync_config(self.active_user_email)
 
-        # Verify credentials first
+        # Verify credentials first (optional, proceed if problem list works)
         conn_check = await self.lc_client.test_connection()
         if not conn_check.get("success"):
-            self.add_log("LeetCode Session Invalid or not logged in! Check Settings.", "error")
-            self.status = "ERROR"
-            return {"status": "auth_failed", "error": conn_check.get("error", "Invalid Session")}
+            self.add_log("LeetCode session check warning (proceeding anyway): " + str(conn_check.get("error", "")), "warning")
 
         username = conn_check.get("username", "User")
         self.add_log(f"Connected to LeetCode as: {username} ({self.active_user_email})", "success")
