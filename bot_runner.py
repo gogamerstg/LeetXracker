@@ -390,6 +390,13 @@ class BotRunner:
                             f"Accepted #{frontend_id} ({title})! Runtime: {submission_result.get('runtime', '')} ({submission_result.get('runtime_percentile', '')}%), Memory: {submission_result.get('memory', '')}",
                             "success"
                         )
+                        # Update streak and XP via account manager
+                        try:
+                            from account_manager import account_mgr
+                            account_mgr.update_streak_and_xp(self.active_user_email, 1)
+                            account_mgr.award_based_on_progress(self.active_user_email)
+                        except Exception as e:
+                            self.add_log(f"Stats update error: {e}", "warning")
                     else:
                         self.failed_count += 1
                         self.add_log(
@@ -561,6 +568,13 @@ class BotRunner:
                 if status_msg == "Accepted":
                     self.solved_count += 1
                     self.add_log(f"[DAILY] Accepted #{fid} ({title})!", "success")
+                    # Update streak and XP via account manager for daily mode
+                    try:
+                        from account_manager import account_mgr
+                        account_mgr.update_streak_and_xp(self.active_user_email, 1)
+                        account_mgr.award_based_on_progress(self.active_user_email)
+                    except Exception as e:
+                        self.add_log(f"[DAILY] Stats update error: {e}", "warning")
                 else:
                     # Don't retry for realism — just mark as failed
                     self.failed_count += 1

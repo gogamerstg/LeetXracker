@@ -20,6 +20,7 @@ class LeetCodeAccount:
     id: str
     email: str  # web user email
     username: str = ""       # LeetCode username display
+    display_name: str = ""    # friendly display name for multi-account
     session: str = ""
     csrf_token: str = ""
     is_active: bool = False  # selected for auto-solve
@@ -35,6 +36,7 @@ class LeetCodeAccount:
             "id": self.id,
             "email": self.email,
             "username": self.username,
+            "display_name": self.display_name,
             "session": self.session,
             "csrf_token": self.csrf_token,
             "is_active": self.is_active,
@@ -52,6 +54,7 @@ class LeetCodeAccount:
             id=d.get("id", ""),
             email=d.get("email", ""),
             username=d.get("username", ""),
+            display_name=d.get("display_name", ""),
             session=d.get("session", ""),
             csrf_token=d.get("csrf_token", ""),
             is_active=d.get("is_active", False),
@@ -108,7 +111,7 @@ class AccountManager:
                                 accounts[acc_id] = LeetCodeAccount.from_dict(acc_data)
                             # Find actual web email
                             for a in accounts.values():
-                                web_email = a.get("email", web_email)
+                                web_email = a.email or web_email
                                 break
                             self._accounts[web_email] = accounts
                     except Exception as e:
@@ -133,7 +136,8 @@ class AccountManager:
 
     # ── CRUD ─────────────────────────────────────────────────────────────────
 
-    def add_account(self, web_email: str, username: str, session: str, csrf_token: str) -> Dict[str, Any]:
+    def add_account(self, web_email: str, username: str = "", session: str = "", csrf_token: str = "",
+                   display_name: str = "", set_active: bool = False) -> Dict[str, Any]:
         """Add a new LeetCode account for a web user. Returns the new account."""
         if web_email not in self._accounts:
             self._accounts[web_email] = {}
@@ -144,13 +148,15 @@ class AccountManager:
                 return {"success": False, "error": "This LeetCode session is already added."}
 
         acc_id = self._gen_id()
+        is_first = len(self._accounts[web_email]) == 0
         acc = LeetCodeAccount(
             id=acc_id,
             email=web_email,
             username=username,
+            display_name=display_name or username,
             session=session,
             csrf_token=csrf_token,
-            is_active=False,
+            is_active=is_first or set_active,
             accuracy_mode="realistic",
             daily_limit=5
         )
@@ -162,7 +168,7 @@ class AccountManager:
         if web_email not in self._accounts or account_id not in self._accounts[web_email]:
             return {"success": False, "error": "Account not found."}
         acc = self._accounts[web_email][account_id]
-        allowed = {"username", "is_active", "accuracy_mode", "daily_limit", "session", "csrf_token"}
+        allowed = {"username", "display_name", "is_active", "accuracy_mode", "daily_limit", "session", "csrf_token"}
         for k, v in updates.items():
             if k in allowed:
                 setattr(acc, k, v)
@@ -214,6 +220,7 @@ class AccountManager:
         if account_id not in self._accounts[web_email]:
             return {"success": False, "error": "Account not found."}
 
+        target_acc = self._accounts[web_email][account_id]
         for acc in self._accounts[web_email].values():
             acc.is_active = (acc.id == account_id)
 
@@ -221,7 +228,12 @@ class AccountManager:
         # Clear cached client
         if web_email in self._active_clients:
             del self._active_clients[web_email]
-        return {"success": True}
+        return {
+            "success": True,
+            "username": target_acc.username or target_acc.display_name,
+            "session": target_acc.session,
+            "csrf_token": target_acc.csrf_token
+        }
 
     # ── Daily Quota Tracking ─────────────────────────────────────────────────
 
@@ -267,6 +279,127 @@ class AccountManager:
         if not acc:
             return None
         return LeetCodeClient(session_token=acc.session, csrf_token=acc.csrf_token)
+
+
+    # ── User Stats (Streak, XP, Badges) ─────────────────────────────────────
+
+    def _get_stats_file_path(self, web_email: str) -> Path:
+        safe = _safe_email_path(web_email)
+        path = BASE_DIR / "user_data" / safe / "stats.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _load_stats(self, web_email: str) -> Dict[str, Any]:
+        """Load user stats from disk."""
+        try:
+            path = self._get_stats_file_path(web_email)
+            if path.exists():
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[AccountManager] Error loading stats from {path}: {e}")
+        return {
+            "streak": 0,
+            "last_solved_date": None,
+            "xp": 0,
+            "badges": [],
+            "badge_history": []  # track when badges were earned
+        }
+
+    def _save_stats(self, web_email: str, stats: Dict[str, Any]):
+        """Save user stats to disk + Firebase."""
+        try:
+            path = self._get_stats_file_path(web_email)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(stats, f, indent=2)
+            firebase_sync.schedule_save(f"stats/{_safe_email_path(web_email)}", stats)
+        except Exception as e:
+            print(f"[AccountManager] Error saving stats: {e}")
+
+    def get_user_stats(self, web_email: str) -> Dict[str, Any]:
+        """Get user stats (streak, XP, badges)."""
+        return self._load_stats(web_email)
+
+    def update_streak_and_xp(self, web_email: str, problems_solved: int = 1) -> Dict[str, Any]:
+        """Update user streak and award XP based on today's solves."""
+        stats = self._load_stats(web_email)
+        today = time.strftime("%Y-%m-%d")
+
+        # Check if streak continues
+        if stats["last_solved_date"] != today:
+            if stats["last_solved_date"] is not None:
+                # Check if yesterday
+                from datetime import datetime, timedelta
+                try:
+                    last_date = datetime.strptime(stats["last_solved_date"], "%Y-%m-%d")
+                    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+                    if stats["last_solved_date"] == yesterday:
+                        # Streak continues
+                        stats["streak"] += 1
+                    else:
+                        # Streak broken
+                        stats["streak"] = 0
+                except:
+                    stats["streak"] = 0
+            else:
+                # First time solving
+                stats["streak"] = 1
+
+            # Award streak XP
+            if stats["streak"] >= 7:
+                stats["xp"] += 100  # Weekly streak bonus
+                self._award_badge_if_new(web_email, "weekly_warrior", "Weekly Warrior", "Solve for 7 days in a row", "🔥", 100, stats)
+            elif stats["streak"] >= 3:
+                stats["xp"] += 25   # 3-day streak bonus
+        else:
+            # Already counted today
+            pass
+
+        # Award base XP for problems solved
+        xp_earned = problems_solved * 10  # 10 XP per problem
+        stats["xp"] += xp_earned
+
+        # Update last solved date
+        stats["last_solved_date"] = today
+
+        self._save_stats(web_email, stats)
+        return stats
+
+    def _award_badge_if_new(self, web_email: str, badge_id: str, name: str, description: str, emoji: str, xp_reward: int, stats: Dict[str, Any]):
+        """Award a badge if the user hasn't earned it yet."""
+        badge_earned = any(b.get("id") == badge_id for b in stats["badges"])
+        if not badge_earned:
+            new_badge = {
+                "id": badge_id,
+                "name": name,
+                "description": description,
+                "emoji": emoji,
+                "xp_reward": xp_reward,
+                "earned_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            stats["badges"].append(new_badge)
+            stats["badge_history"].append({
+                "badge_id": badge_id,
+                "earned_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            })
+            stats["xp"] += xp_reward
+            print(f"[AccountManager] Badge earned: {name}")
+
+    def award_based_on_progress(self, web_email: str):
+        """Check and award badges based on user progress."""
+        stats = self._load_stats(web_email)
+
+        # Check for problem count badges
+        # Note: We'd need total solved count from history - for now we'll use approximate
+        # In a full implementation, you'd query the bot_runner history
+
+        # For demo purposes, we'll award some badges based on streak and recent activity
+        if stats.get("streak", 0) >= 7:
+            self._award_badge_if_new(web_email, "weekly_warrior", "Weekly Warrior", "Solve for 7 days in a row", "🔥", 100, stats)
+
+        # You could add more sophisticated badge logic here based on actual problem history
+
+        self._save_stats(web_email, stats)
 
 
 account_mgr = AccountManager()

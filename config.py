@@ -30,6 +30,9 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 
     # Bot Automation Settings
     "auto_model_failover": True,
+    "target_easy": int(os.environ.get("TARGET_EASY", 20)),
+    "target_medium": int(os.environ.get("TARGET_MEDIUM", 10)),
+    "target_hard": int(os.environ.get("TARGET_HARD", 5)),
     "target_count": int(os.environ.get("TARGET_COUNT", 50)),
     "delay_seconds": int(os.environ.get("DELAY_SECONDS", 1)),
     "difficulty": os.environ.get("DIFFICULTY", "ALL"),

@@ -172,6 +172,9 @@ class SettingsPayload(BaseModel):
     gemini_api_key: Optional[str] = None
     openrouter_api_key: Optional[str] = None
     target_count: Optional[int] = None
+    target_easy: Optional[int] = None
+    target_medium: Optional[int] = None
+    target_hard: Optional[int] = None
     delay_seconds: Optional[int] = None
     difficulty: Optional[str] = None
     language: Optional[str] = None
@@ -371,6 +374,30 @@ async def delete_account(
 ):
     """Remove a LeetCode account."""
     return account_mgr.remove_account(current_user["email"], account_id)
+
+# ── User Stats (Streak, XP, Badges) ─────────────────────────────────────
+
+@app.get("/api/user/stats")
+async def get_user_stats(current_user: dict = Depends(get_current_user)):
+    """Get user statistics including streak, XP, and badges."""
+    stats = account_mgr.get_user_stats(current_user["email"])
+    return {
+        "streak": stats.get("streak", 0),
+        "xp": stats.get("xp", 0),
+        "badge_count": len(stats.get("badges", [])),
+        "last_solved_date": stats.get("last_solved_date"),
+        "badges": stats.get("badges", [])
+    }
+
+@app.get("/api/user/badges")
+async def get_user_badges(current_user: dict = Depends(get_current_user)):
+    """Get detailed badge information for the user."""
+    stats = account_mgr.get_user_stats(current_user["email"])
+    return {
+        "badges": stats.get("badges", []),
+        "total_xp": stats.get("xp", 0),
+        "streak": stats.get("streak", 0)
+    }
 
 # ── Cron / GitHub Actions Trigger (secret-key protected) ──────────────────────
 
