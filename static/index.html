@@ -81,6 +81,39 @@
     </div>
 </div>
 
+<!-- =================== ABOUT POPUP =================== -->
+<div id="aboutPopup" class="fixed inset-0 z-[110] bg-black/80 backdrop-blur-xl hidden flex items-center justify-center p-4">
+    <div class="glass-panel rounded-3xl max-w-sm w-full p-8 space-y-5 border border-blue-600/30 shadow-2xl shadow-blue-500/10 text-center relative">
+        <button onclick="closeAboutPopup()" class="absolute top-3 right-3 text-gray-400 hover:text-white p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div id="aboutImageContainer" class="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30 mx-auto mb-3 overflow-hidden border-2 border-white/20">
+            <i data-lucide="user" class="w-12 h-12 text-white" id="aboutImgPlaceholder"></i>
+            <img id="aboutProfileImg" src="" class="w-full h-full object-cover hidden" alt="Profile">
+        </div>
+        <div>
+            <h2 id="aboutName" class="text-xl font-bold text-white mb-1">Suraj Kumar Das</h2>
+            <p id="aboutStudy" class="text-xs text-gray-400">Poornima College of Engineering (2025-2029)</p>
+        </div>
+        <div class="space-y-2 text-left">
+            <a id="aboutLinkedin" href="https://linkedin.com/in/surajkumardasji" target="_blank" class="flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-blue-900/30 border border-blue-600/20 text-xs hover:bg-blue-900/50 transition">
+                <i data-lucide="linkedin" class="w-4 h-4 text-blue-400"></i><span class="text-gray-300">LinkedIn:</span><span class="text-blue-300">surajkumardasji</span>
+            </a>
+            <a id="aboutLeetcode" href="https://leetcode.com/surajkumardas" target="_blank" class="flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-orange-900/30 border border-orange-600/20 text-xs hover:bg-orange-900/50 transition">
+                <i data-lucide="code-2" class="w-4 h-4 text-orange-400"></i><span class="text-gray-300">LeetCode:</span><span class="text-orange-300">surajkumardas</span>
+            </a>
+            <a id="aboutInstagram" href="https://instagram.com/aboutsurajdas" target="_blank" class="flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-pink-900/30 border border-pink-600/20 text-xs hover:bg-pink-900/50 transition">
+                <i data-lucide="instagram" class="w-4 h-4 text-pink-400"></i><span class="text-gray-300">Instagram:</span><span class="text-pink-300">aboutsurajdas</span>
+            </a>
+            <a id="aboutGithub" href="https://github.com/gogamerstg" target="_blank" class="flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-gray-900/50 border border-gray-600/20 text-xs hover:bg-gray-900/70 transition">
+                <i data-lucide="github" class="w-4 h-4 text-gray-300"></i><span class="text-gray-300">GitHub:</span><span class="text-gray-300">gogamerstg</span>
+            </a>
+            <div id="aboutPhone" class="flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-emerald-900/30 border border-emerald-600/20 text-xs">
+                <i data-lucide="phone" class="w-4 h-4 text-emerald-400"></i><span class="text-gray-300">Phone:</span><span class="text-emerald-300">+91 89553 22319</span>
+            </div>
+        </div>
+        <button onclick="closeAboutPopup()" class="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs text-gray-300 font-medium transition">Close</button>
+    </div>
+</div>
+
 <!-- =================== NAV BAR =================== -->
 <header id="mainHeader" class="glass-panel sticky top-0 z-40 border-b border-gray-800 px-4 lg:px-8 py-3.5 flex items-center justify-between hidden">
     <div class="flex items-center space-x-3">
@@ -385,6 +418,26 @@
                 </table>
             </div>
         </div>
+
+        <!-- About Profile Editor (Super Admin Only) -->
+        <div id="aboutEditorSection" class="p-4 rounded-2xl bg-blue-950/20 border border-blue-800/30 space-y-3">
+            <h3 class="text-sm font-semibold text-blue-300 flex items-center space-x-2"><i data-lucide="user-circle" class="w-4 h-4"></i><span>About Profile Editor</span></h3>
+            <div id="aboutEditorMsg" class="text-xs text-amber-400 py-1 px-3 bg-amber-500/10 rounded-xl border border-amber-500/20 hidden"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input id="aboutNameInput" type="text" placeholder="Full Name" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutStudyInput" type="text" placeholder="College / Study Info" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutLinkedinInput" type="text" placeholder="LinkedIn username" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutLeetcodeInput" type="text" placeholder="LeetCode username" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutInstagramInput" type="text" placeholder="Instagram username" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutGithubInput" type="text" placeholder="GitHub username" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutPhoneInput" type="text" placeholder="Phone number" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <input id="aboutImageInput" type="text" placeholder="Profile Image URL" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            <div class="flex items-center space-x-3">
+                <img id="aboutImagePreview" src="" class="w-10 h-10 rounded-full border border-gray-600 object-cover hidden" alt="Preview">
+                <button onclick="saveAboutProfile()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Save About Profile</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -588,6 +641,7 @@ function showDashboard() {
     document.getElementById('loginOverlay').classList.add('hidden');
     document.getElementById('mainHeader').classList.remove('hidden');
     document.getElementById('mainDashboard').classList.remove('hidden');
+    showAboutPopup(); // Auto-show About on every login
     const isSuperAdmin = currentUserInfo && (currentUserInfo.email || '').trim().toLowerCase() === 'surajdas@surajdas.com';
     // Load accounts, user stats, and start polling
     loadAccounts();
@@ -1049,6 +1103,101 @@ async function loadBadges() {
         }
         container.innerHTML = badges.map(b => `<div class="flex items-center space-x-3 bg-gray-900/60 rounded-xl px-4 py-3 border border-gray-800"><div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:${b.color || '#6366f1'}20; border:1px solid ${b.color || '#6366f1'}40;">${b.emoji || '🏅'}</div><div><div class="text-sm font-semibold text-white">${b.name}</div><div class="text-xs text-gray-400">${b.description}</div><div class="text-[10px] text-gray-500 mt-0.5">+${b.xp_reward} XP</div></div></div>`).join('');
     } catch(e) { document.getElementById('badgesContainer').innerHTML = '<div class="text-xs text-rose-400 text-center py-4">Failed to load badges.</div>'; }
+}
+
+// ── About Profile Functions ──
+async function loadAboutProfile() {
+    try {
+        const res = await apiFetch('/api/about');
+        if (!res.ok) return;
+        const data = await safeJson(res);
+
+        // Update About Popup Info
+        document.getElementById('aboutProfileName').textContent = data.name || 'Suraj Kumar Das';
+        document.getElementById('aboutProfileStudy').textContent = data.study || 'Poornima College of Engineering';
+
+        const avatarImg = document.getElementById('aboutProfileAvatar');
+        if (data.image_url) {
+            avatarImg.src = data.image_url;
+            avatarImg.classList.remove('hidden');
+            document.getElementById('aboutProfileInitialAvatar').classList.add('hidden');
+        } else {
+            avatarImg.classList.add('hidden');
+            document.getElementById('aboutProfileInitialAvatar').classList.remove('hidden');
+        }
+
+        // Update Social Links
+        const socialLinks = {
+            linkedin: `https://linkedin.com/in/${data.linkedin || 'surajkumardasji'}`,
+            leetcode: `https://leetcode.com/u/${data.leetcode || 'surajkumardas'}`,
+            instagram: `https://instagram.com/${data.instagram || 'aboutsurajdas'}`,
+            github: `https://github.com/${data.github || 'gogamerstg'}`,
+            phone: `tel:${data.phone || '+918955322319'}`,
+        };
+
+        document.getElementById('aboutLinkLinkedin').href = socialLinks.linkedin;
+        document.getElementById('aboutLinkLeetcode').href = socialLinks.leetcode;
+        document.getElementById('aboutLinkInstagram').href = socialLinks.instagram;
+        document.getElementById('aboutLinkGithub').href = socialLinks.github;
+        document.getElementById('aboutLinkPhone').href = socialLinks.phone;
+
+        // Populate Admin Inputs (if exists)
+        if (document.getElementById('adminAboutName')) {
+            document.getElementById('adminAboutName').value = data.name || '';
+            document.getElementById('adminAboutStudy').value = data.study || '';
+            document.getElementById('adminAboutImage').value = data.image_url || '';
+            document.getElementById('adminAboutLinkedin').value = data.linkedin || '';
+            document.getElementById('adminAboutLeetcode').value = data.leetcode || '';
+            document.getElementById('adminAboutInstagram').value = data.instagram || '';
+            document.getElementById('adminAboutGithub').value = data.github || '';
+            document.getElementById('adminAboutPhone').value = data.phone || '';
+        }
+    } catch(e) {
+        console.error('Failed to load About profile info:', e);
+    }
+}
+
+function showAboutPopup() {
+    document.getElementById('aboutModal').classList.remove('hidden');
+    loadAboutProfile();
+}
+
+function closeAboutPopup() {
+    document.getElementById('aboutModal').classList.add('hidden');
+}
+
+async function saveAboutProfile() {
+    const btn = document.getElementById('adminSaveAboutBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving & Deploying...';
+    try {
+        const payload = {
+            name: document.getElementById('adminAboutName').value,
+            study: document.getElementById('adminAboutStudy').value,
+            image_url: document.getElementById('adminAboutImage').value,
+            linkedin: document.getElementById('adminAboutLinkedin').value,
+            leetcode: document.getElementById('adminAboutLeetcode').value,
+            instagram: document.getElementById('adminAboutInstagram').value,
+            github: document.getElementById('adminAboutGithub').value,
+            phone: document.getElementById('adminAboutPhone').value
+        };
+        const res = await apiFetch('/api/admin/about', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const data = await safeJson(res);
+        if (data.success) {
+            alert('About profile updated! Git commit/push triggered successfully.');
+            loadAboutProfile();
+        } else {
+            alert('Error updating About profile: ' + (data.error || 'Failed'));
+        }
+    } catch(e) {
+        alert('Exception: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Profile Changes';
+    }
 }
 
 // ── Init ──
