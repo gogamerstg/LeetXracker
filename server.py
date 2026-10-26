@@ -157,6 +157,54 @@ class ResetPasswordPayload(BaseModel):
 async def admin_reset_password(email: str, payload: ResetPasswordPayload, admin: dict = Depends(require_admin)):
     return auth_mgr.reset_user_password(email, payload.new_password)
 
+@app.get("/api/about")
+async def get_about_profile():
+    about_path = BASE_DIR / "about_profile.json"
+    if about_path.exists():
+        try:
+            with open(about_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"name": "Suraj Kumar Das", "linkedin": "surajkumardasji", "leetcode": "surajkumardas", "instagram": "aboutsurajdas", "github": "gogamerstg", "phone": "+91 89553 22319", "study": "Poornima College of Engineering (2025-2029)", "image_url": ""}
+
+class AboutPayload(BaseModel):
+    name: Optional[str] = None
+    linkedin: Optional[str] = None
+    leetcode: Optional[str] = None
+    instagram: Optional[str] = None
+    github: Optional[str] = None
+    phone: Optional[str] = None
+    study: Optional[str] = None
+    image_url: Optional[str] = None
+
+@app.post("/api/admin/about")
+async def update_about_profile(payload: AboutPayload, admin: dict = Depends(require_admin)):
+    if admin.get("email") != "surajdas@surajdas.com":
+        raise HTTPException(status_code=403, detail="Only superadmin surajdas@surajdas.com can update profile.")
+    about_path = BASE_DIR / "about_profile.json"
+    current = {}
+    if about_path.exists():
+        try:
+            with open(about_path, "r", encoding="utf-8") as f:
+                current = json.load(f)
+        except Exception:
+            pass
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    current.update(updates)
+    try:
+        with open(about_path, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+
+        import subprocess
+        subprocess.run(["git", "add", "about_profile.json"], cwd=str(BASE_DIR), capture_output=True)
+        subprocess.run(["git", "commit", "-m", "update: about profile info\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>"], cwd=str(BASE_DIR), capture_output=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=str(BASE_DIR), capture_output=True)
+    except Exception as e:
+        print(f"[Admin] Error updating git for about profile: {e}")
+
+    return {"success": True, "profile": current}
+
 # ================= PROTECTED BOT ENDPOINTS =================
 @app.get("/api/settings")
 async def get_settings(current_user: dict = Depends(get_current_user)):

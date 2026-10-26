@@ -100,6 +100,9 @@
             <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
             <span id="statusText">IDLE</span>
         </div>
+        <button id="btnAboutNav" onclick="showAboutPopup()" class="hidden p-2 rounded-xl bg-blue-900/40 hover:bg-blue-800/50 border border-blue-500/30 text-blue-300 transition items-center space-x-1.5 text-xs font-medium">
+            <i data-lucide="user" class="w-4 h-4"></i><span class="hidden sm:inline">About</span>
+        </button>
         <button id="btnAdminNav" onclick="toggleAdminModal(true)" style="display: none !important;" class="hidden p-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/50 border border-purple-500/30 text-purple-300 transition items-center space-x-1.5 text-xs font-medium">
             <i data-lucide="shield" class="w-4 h-4"></i><span class="hidden sm:inline">Admin</span>
         </button>
