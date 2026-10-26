@@ -57,9 +57,19 @@ async def login_and_get_cookies(username: str, password: str, output_path: str =
             await page.fill('input[id="id_password"]', password, timeout=5000)
             await asyncio.sleep(0.5)
 
-            # Click login button
+            # Click login button - try multiple selectors
             print("Clicking login button...")
-            await page.click('button[type="submit"]', timeout=5000)
+            try:
+                await page.click('button[type="submit"]', timeout=8000)
+            except Exception:
+                try:
+                    await page.click('button', timeout=5000)
+                except Exception:
+                    try:
+                        await page.click('[class*="btn"]', timeout=5000)
+                    except Exception:
+                        print("Trying submit via keyboard...")
+                        await page.press('input[id="id_password"]', 'Enter')
 
             # Wait for navigation or response
             await asyncio.sleep(5)

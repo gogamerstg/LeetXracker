@@ -435,7 +435,7 @@
             </div>
             <div class="flex items-center space-x-3">
                 <img id="aboutImagePreview" src="" class="w-10 h-10 rounded-full border border-gray-600 object-cover hidden" alt="Preview">
-                <button onclick="saveAboutProfile()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Save About Profile</button>
+                <button id="adminSaveAboutBtn" onclick="saveAboutProfile()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">Save About Profile</button>
             </div>
         </div>
     </div>
@@ -633,6 +633,9 @@ function showLogin() {
         adminBtn.classList.add('hidden');
         adminBtn.style.setProperty('display', 'none', 'important');
     }
+    const aboutBtn = document.getElementById('btnAboutNav');
+    if (aboutBtn) { aboutBtn.classList.add('hidden'); aboutBtn.style.setProperty('display', 'none', 'important'); }
+    closeAboutPopup();
     requestGeo();
     lucide.createIcons();
 }
@@ -658,6 +661,12 @@ function showDashboard() {
             adminBtn.classList.add('hidden');
             adminBtn.style.setProperty('display', 'none', 'important');
         }
+    }
+    // Show About button for all logged-in users
+    const aboutBtn = document.getElementById('btnAboutNav');
+    if (aboutBtn) {
+        aboutBtn.classList.remove('hidden');
+        aboutBtn.style.setProperty('display', 'flex', 'important');
     }
     if (currentUserInfo) {
         document.getElementById('loggedInUserLabel').textContent = (currentUserInfo.email || '').split('@')[0];
@@ -1111,92 +1120,96 @@ async function loadAboutProfile() {
         const res = await apiFetch('/api/about');
         if (!res.ok) return;
         const data = await safeJson(res);
+        if (!data) return;
 
-        // Update About Popup Info
-        document.getElementById('aboutProfileName').textContent = data.name || 'Suraj Kumar Das';
-        document.getElementById('aboutProfileStudy').textContent = data.study || 'Poornima College of Engineering';
+        // Update About Popup name and study
+        document.getElementById('aboutName').textContent = data.name || 'Suraj Kumar Das';
+        document.getElementById('aboutStudy').textContent = data.study || 'Poornima College of Engineering';
 
-        const avatarImg = document.getElementById('aboutProfileAvatar');
+        // Update profile image or show initial avatar
+        const imgEl = document.getElementById('aboutProfileImg');
+        const placeholder = document.getElementById('aboutImgPlaceholder');
         if (data.image_url) {
-            avatarImg.src = data.image_url;
-            avatarImg.classList.remove('hidden');
-            document.getElementById('aboutProfileInitialAvatar').classList.add('hidden');
+            imgEl.src = data.image_url;
+            imgEl.classList.remove('hidden');
+            placeholder.classList.add('hidden');
         } else {
-            avatarImg.classList.add('hidden');
-            document.getElementById('aboutProfileInitialAvatar').classList.remove('hidden');
+            imgEl.classList.add('hidden');
+            placeholder.classList.remove('hidden');
         }
 
-        // Update Social Links
-        const socialLinks = {
-            linkedin: `https://linkedin.com/in/${data.linkedin || 'surajkumardasji'}`,
-            leetcode: `https://leetcode.com/u/${data.leetcode || 'surajkumardas'}`,
-            instagram: `https://instagram.com/${data.instagram || 'aboutsurajdas'}`,
-            github: `https://github.com/${data.github || 'gogamerstg'}`,
-            phone: `tel:${data.phone || '+918955322319'}`,
+        // Update social link hrefs and display text
+        const links = {
+            aboutLinkedin:    { href: `https://linkedin.com/in/${data.linkedin || 'surajkumardasji'}`,    text: data.linkedin  || 'surajkumardasji' },
+            aboutLeetcode:    { href: `https://leetcode.com/u/${data.leetcode || 'surajkumardas'}`,     text: data.leetcode  || 'surajkumardas' },
+            aboutInstagram:   { href: `https://instagram.com/${data.instagram || 'aboutsurajdas'}`,     text: data.instagram || 'aboutsurajdas' },
+            aboutGithub:       { href: `https://github.com/${data.github || 'gogamerstg'}`,              text: data.github    || 'gogamerstg' },
         };
+        for (const [id, info] of Object.entries(links)) {
+            const el = document.getElementById(id);
+            if (el) { el.href = info.href; el.querySelector('span:last-child').textContent = info.text; }
+        }
+        // Phone row (div, not <a>)
+        const phoneEl = document.getElementById('aboutPhone');
+        if (phoneEl) phoneEl.querySelector('span:last-child').textContent = data.phone || '+91 89553 22319';
 
-        document.getElementById('aboutLinkLinkedin').href = socialLinks.linkedin;
-        document.getElementById('aboutLinkLeetcode').href = socialLinks.leetcode;
-        document.getElementById('aboutLinkInstagram').href = socialLinks.instagram;
-        document.getElementById('aboutLinkGithub').href = socialLinks.github;
-        document.getElementById('aboutLinkPhone').href = socialLinks.phone;
-
-        // Populate Admin Inputs (if exists)
-        if (document.getElementById('adminAboutName')) {
-            document.getElementById('adminAboutName').value = data.name || '';
-            document.getElementById('adminAboutStudy').value = data.study || '';
-            document.getElementById('adminAboutImage').value = data.image_url || '';
-            document.getElementById('adminAboutLinkedin').value = data.linkedin || '';
-            document.getElementById('adminAboutLeetcode').value = data.leetcode || '';
-            document.getElementById('adminAboutInstagram').value = data.instagram || '';
-            document.getElementById('adminAboutGithub').value = data.github || '';
-            document.getElementById('adminAboutPhone').value = data.phone || '';
+        // Populate admin inputs (if user is super-admin)
+        const adminFields = ['aboutNameInput','aboutStudyInput','aboutLinkedinInput','aboutLeetcodeInput',
+                             'aboutInstagramInput','aboutGithubInput','aboutPhoneInput','aboutImageInput'];
+        if (adminFields.every(id => document.getElementById(id))) {
+            document.getElementById('aboutNameInput').value     = data.name     || '';
+            document.getElementById('aboutStudyInput').value     = data.study    || '';
+            document.getElementById('aboutImageInput').value    = data.image_url || '';
+            document.getElementById('aboutLinkedinInput').value  = data.linkedin  || '';
+            document.getElementById('aboutLeetcodeInput').value = data.leetcode  || '';
+            document.getElementById('aboutInstagramInput').value= data.instagram || '';
+            document.getElementById('aboutGithubInput').value    = data.github    || '';
+            document.getElementById('aboutPhoneInput').value     = data.phone     || '';
         }
     } catch(e) {
-        console.error('Failed to load About profile info:', e);
+        console.error('loadAboutProfile failed:', e);
     }
 }
 
 function showAboutPopup() {
-    document.getElementById('aboutModal').classList.remove('hidden');
+    document.getElementById('aboutPopup').classList.remove('hidden');
     loadAboutProfile();
 }
 
 function closeAboutPopup() {
-    document.getElementById('aboutModal').classList.add('hidden');
+    document.getElementById('aboutPopup').classList.add('hidden');
 }
 
 async function saveAboutProfile() {
     const btn = document.getElementById('adminSaveAboutBtn');
-    btn.disabled = true;
-    btn.textContent = 'Saving & Deploying...';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving & Deploying…'; }
     try {
         const payload = {
-            name: document.getElementById('adminAboutName').value,
-            study: document.getElementById('adminAboutStudy').value,
-            image_url: document.getElementById('adminAboutImage').value,
-            linkedin: document.getElementById('adminAboutLinkedin').value,
-            leetcode: document.getElementById('adminAboutLeetcode').value,
-            instagram: document.getElementById('adminAboutInstagram').value,
-            github: document.getElementById('adminAboutGithub').value,
-            phone: document.getElementById('adminAboutPhone').value
+            name:     document.getElementById('aboutNameInput').value,
+            study:    document.getElementById('aboutStudyInput').value,
+            image_url: document.getElementById('aboutImageInput').value,
+            linkedin:  document.getElementById('aboutLinkedinInput').value,
+            leetcode:  document.getElementById('aboutLeetcodeInput').value,
+            instagram: document.getElementById('aboutInstagramInput').value,
+            github:    document.getElementById('aboutGithubInput').value,
+            phone:     document.getElementById('aboutPhoneInput').value,
         };
         const res = await apiFetch('/api/admin/about', {
             method: 'POST',
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         });
         const data = await safeJson(res);
-        if (data.success) {
-            alert('About profile updated! Git commit/push triggered successfully.');
+        if (data && data.success) {
+            alert('About profile saved! Git commit & push triggered successfully.');
             loadAboutProfile();
         } else {
-            alert('Error updating About profile: ' + (data.error || 'Failed'));
+            alert('Failed to update About profile: ' + (data?.error || 'Unknown error'));
         }
     } catch(e) {
-        alert('Exception: ' + e.message);
+        alert('Exception saving About profile: ' + e.message);
     } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Profile Changes';
+        if (btn) { btn.disabled = false; btn.textContent = 'Save About Profile'; }
     }
 }
 
